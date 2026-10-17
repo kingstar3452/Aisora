@@ -1,0 +1,9 @@
+:root { color-scheme: dark; font: 14px/1.5 system-ui, sans-serif; color: #e0eaf7; background: #111c2e; }
+body { width: 310px; padding: 16px; margin: 0; }
+h1 { font-size: 20px; color: #a5dbd0; }
+button, .file { display: block; box-sizing: border-box; width: 100%; padding: 9px 12px; margin: 8px 0; border: 1px solid #3b536c; border-radius: 7px; background: #20344b; color: inherit; text-align: left; cursor: pointer; }
+input { box-sizing: border-box; width: 100%; margin: 4px 0; }
+input[type=file] { font-size: 11px; }
+small { display: block; font-size: 12px; color: #abc0d5; }
+#status { overflow-wrap: anywhere; border-left: 2px solid #a5dbd0; padding-left: 10px; }
+hr { border: 0; border-top: 1px solid #3b536c; margin: 16px 0; }

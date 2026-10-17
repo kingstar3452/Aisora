@@ -1,0 +1,9 @@
+.godot/
+.local/
+*.log
+*.tmp
+.DS_Store
+__pycache__/
+*.pyc
+exports/
+.env
