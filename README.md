@@ -4,7 +4,7 @@ A lightweight Godot 4 anime companion in a procedural sakura park for an Intel M
 
 **Tested engine: Godot 4.6.3, Compatibility renderer.** The uploaded project advertised `4.7 / Forward Plus`; it had no scenes, scripts, or engine binary pin. This implementation explicitly selects the tested stable version and OpenGL Compatibility for the 2017 iMac.
 
-Phase 2 builds on `dev/aisora-companion`. Existing model files, browser extension and local bridge configuration continue to work. See [Phase 2 controls and performance](docs/PHASE2.md).
+Phase 3 continues on `dev/aisora-companion` with softer sakura scenery, efficient character materials, Low/Balanced/High presets and an FPS/frame-time overlay. Existing model, animations, settings, extension and local bridge remain compatible. See [what changed and how to test](docs/PHASE3.md) and [before/after performance evidence](docs/PERFORMANCE.md).
 
 ## Start on your Mac
 
@@ -23,6 +23,7 @@ Do not enter ChatGPT passwords, cookies, or session tokens into this project. Th
 | 0 | Automatic presentation state |
 | 1 / 2 / 3 / 4 / 5 | Test Idle / Listening / Thinking / Talking / Sleeping |
 | Tab / Settings button | Graphics, animation intensity, petal density, FPS, camera, light, audio and gesture previews |
+| F3 | Toggle FPS, mean/p95 frame time and draw-call diagnostics |
 | F11 | Full-screen / windowed; move the window to the Samsung display first |
 | Escape | Leave full-screen |
 | H | Hide/show the interface for a clean dedicated display |
@@ -32,13 +33,13 @@ F8 is **not** a system-wide shortcut unless you run the optional [macOS hotkey h
 
 ## What is implemented
 
-- Your VRM 0.0 model, imported with its original embedded textures, MToon materials, humanoid skeleton, and available facial controls. No replacement character.
-- Procedural Japanese cherry blossom park: eight sakura trees, pink blossom clusters, grass, a winding path, a wooden bench, a garden lantern, warm daylight and sparse falling petals. Shared opaque geometry, no asset downloads. Aisora stays centered and unobstructed.
+- Your VRM 0.0 model, imported with its original embedded textures, humanoid skeleton, and available facial controls. Low/Balanced use efficient textured shading; High restores the original MToon materials/outlines. No replacement character.
+- Procedural Japanese cherry blossom park: eight sakura trees, pink blossom clusters, grass, a winding path, a wooden bench, a garden lantern, warm daylight and sparse falling petals. Original baked blossom/grass textures, merged curved wood/props and instanced cutout foliage; no asset downloads. Aisora stays centered and unobstructed.
 - Layered breathing, gaze, posture, gestures and facial animation, with randomized timing. Visible swaying/weight shifts, waves, stretches, looking around, posture adjustments, speech-linked head/hand gestures, focused listening, and small hair-root motion. Sleep eases into a standing resting pose over 2.4 seconds and wakes over 1.8 seconds; the bench is scenery.
 - Five-state presentation controller with manual test overrides. Automatic mode distinguishes listening/talking from detected Voice state and output audio. **Thinking cannot be inferred reliably from silence and remains a manual test state.**
 - Authenticated loopback bridge and unpacked Chromium extension: explicit existing-tab selection, start/end/toggle attempts, visible-control state detection, command confirmation/timeouts, disconnect recovery, manual fallback.
 - Optional **ChatGPT tab output** capture in an offscreen extension document. Only scalar RMS amplitude leaves the audio analyzer; no microphone capture, recordings, or audio uploads. Smoothed mouth opening, silence gate and stale-audio closure. This is amplitude lip sync, not phoneme timing.
-- Standard resizable window by default. Foreground target 30 FPS, optional low-power 15 FPS, inactive 10 FPS, minimized 5 FPS, settled sleep 10 FPS. Background throttling keeps the Voice bridge running. Settings persist graphics quality, intensity, petal density and FPS. Hair uses bounded procedural root motion; full spring simulation remains disabled.
+- Standard resizable window by default. Foreground target 30 FPS, optional low-power 15 FPS, inactive 10 FPS, minimized 5 FPS, settled sleep 10 FPS. Background throttling keeps the Voice bridge running. Settings persist Low/Balanced/High quality, intensity, petal density, FPS and diagnostics. Secondary motion runs at reduced frequency; unchanged bone/face values skip native writes. Hair uses bounded procedural root motion; full spring simulation remains disabled.
 
 ## Validation and limitations
 

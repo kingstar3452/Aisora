@@ -18,6 +18,24 @@ var low_power: bool = true
 var bone_indices: Dictionary = {}
 var parent_rest_axes: Dictionary = {}
 var hair_roots: Array[int] = []
+var parent_quaternions: Dictionary = {}
+var parent_inverse_quaternions: Dictionary = {}
+var _last_rotations: Dictionary = {}
+var _last_hips: Vector3 = Vector3.INF
+var _secondary_clock: float = 1.0
+var backgrounded: bool = false
+var visual_quality: int = -1
+var lighting: float = 1.0
+var material_slots: Array[Dictionary] = []
+var _fast_materials: Dictionary = {}
+var _face_meshes: Array[MeshInstance3D] = []
+var _face_shapes: PackedInt32Array = PackedInt32Array()
+var _face_last: PackedFloat32Array = PackedFloat32Array()
+var _face_target: PackedFloat32Array = PackedFloat32Array()
+var _face_bindings: Array[Array] = []
+var _face_weights: PackedFloat32Array = PackedFloat32Array([0, 0, 0, 0])
+var bone_writes: int = 0
+var face_writes: int = 0
 var mouth: float = 0.0
 var time: float = 0.0
 var blink_wait: float = 2.0
@@ -42,10 +60,17 @@ func _ready() -> void:
 			bone_indices[bone_name] = i
 			var parent: int = skeleton.get_bone_parent(i)
 			parent_rest_axes[i] = skeleton.get_bone_global_rest(parent).basis if parent >= 0 else Basis.IDENTITY
+			parent_quaternions[i] = Basis(parent_rest_axes[i]).get_rotation_quaternion()
+			parent_inverse_quaternions[i] = Quaternion(parent_quaternions[i]).inverse()
+			_last_rotations[i] = rest_rotations[i]
 			if bone_name.begins_with("J_Sec_Hair1_") and skeleton.get_bone_name(parent) == "Head":
 				hair_roots.append(i)
 	# Keep the authored baseline; bounded procedural roots replace per-frame springs.
 	_disable_secondary(model)
+	_cache_face_bindings()
+	for mesh: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+		for surface in mesh.mesh.get_surface_count():
+			material_slots.append({"mesh": mesh, "surface": surface, "original": mesh.get_active_material(surface)})
 
 func _disable_secondary(node: Node) -> void:
 	if node.get_script() != null and str(node.get_script().resource_path).ends_with("vrm_secondary.gd"):
@@ -101,18 +126,24 @@ func tick(delta: float) -> void:
 		_world_pose(bone_name, poses[bone_name])
 	var hips: int = int(bone_indices.get("Hips", -1))
 	if hips >= 0:
-		skeleton.set_bone_pose_position(hips, Vector3(rest_positions[hips]) + motion.hips_offset)
-	# Small authored-axis root rotations provide wind/secondary lag without spring collisions.
-	for i in hair_roots.size():
-		var index: int = hair_roots[i]
-		var hair_offset: Vector3 = Vector3.ZERO
-		if not low_power or i % 2 == 0:
-			var strength: float = animation_intensity * (1.0 - motion.sleep_amount * 0.8)
-			hair_offset = Vector3(sin(time * 1.4 + i * 0.7) * 0.032, 0.0, sin(time * 1.1 + i) * 0.04) * strength
-		skeleton.set_bone_pose_rotation(index, rest_rotations[index] * Quaternion.from_euler(hair_offset))
-	# Eye rotations use the imported eye rest axes; head/gaze and eyelids never own the same track.
-	_local_pose("LeftEye", Vector3(motion.gaze.y * 0.025, 0.0, motion.gaze.x * 0.065))
-	_local_pose("RightEye", Vector3(motion.gaze.y * 0.025, 0.0, motion.gaze.x * 0.065))
+		var position_target: Vector3 = Vector3(rest_positions[hips]) + motion.hips_offset
+		if not position_target.is_equal_approx(_last_hips):
+			skeleton.set_bone_pose_position(hips, position_target)
+			_last_hips = position_target
+	# Secondary animation gets its own lower rate; primary gesture/breath poses stay continuous.
+	_secondary_clock += delta
+	var secondary_interval: float = 0.25 if backgrounded else (0.125 if low_power or visual_quality == 0 else 0.083333)
+	if _secondary_clock >= secondary_interval or animation_intensity == 0.0:
+		_secondary_clock = 0.0
+		for i in hair_roots.size():
+			var index: int = hair_roots[i]
+			var hair_offset: Vector3 = Vector3.ZERO
+			if not low_power or i % 2 == 0:
+				var strength: float = animation_intensity * (1.0 - motion.sleep_amount * 0.8)
+				hair_offset = Vector3(sin(time * 1.4 + i * 0.7) * 0.032, 0.0, sin(time * 1.1 + i) * 0.04) * strength
+			_write_rotation(index, rest_rotations[index] * Quaternion.from_euler(hair_offset))
+		_local_pose("LeftEye", Vector3(motion.gaze.y * 0.025, 0.0, motion.gaze.x * 0.065))
+		_local_pose("RightEye", Vector3(motion.gaze.y * 0.025, 0.0, motion.gaze.x * 0.065))
 	blink_wait -= delta
 	if blink_wait <= 0.0 and blink_time < 0.0:
 		blink_time = 0.0
@@ -130,29 +161,103 @@ func tick(delta: float) -> void:
 	var talk: float = float(motion.weights[State.TALKING])
 	# Do not invent a jaw bone: this VRM's aa morph contains the visible mouth/jaw deformation.
 	# Amplitude and silence still exclusively drive the mouth; gestures cannot open it.
-	_apply_expressions({"blink": lerpf(blink, 1.0, sleep), "aa": mouth * awake,
-		"relaxed": (0.13 + talk * 0.12) * awake, "sad": thought * 0.10 * awake})
+	_face_weights[0] = lerpf(blink, 1.0, sleep)
+	_face_weights[1] = mouth * awake
+	_face_weights[2] = (0.13 + talk * 0.12) * awake
+	_face_weights[3] = thought * 0.10 * awake
+	_update_face()
 
 func _local_pose(bone_name: String, offset: Vector3) -> void:
 	var index: int = int(bone_indices.get(bone_name, -1))
 	if index >= 0:
-		skeleton.set_bone_pose_rotation(index, rest_rotations[index] * Quaternion.from_euler(offset))
+		_write_rotation(index, rest_rotations[index] * Quaternion.from_euler(offset))
 
 func _world_pose(bone_name: String, offset: Vector3) -> void:
 	var index: int = int(bone_indices.get(bone_name, -1))
 	if index < 0:
 		return
-	var axes: Basis = parent_rest_axes[index]
-	# Explicit order permits an upper-arm twist then relaxation, with mirrored elbow flexion.
-	var rotation: Basis = Basis(Vector3.BACK, offset.z) * Basis(Vector3.RIGHT, offset.x) * Basis(Vector3.UP, offset.y)
-	var local_delta: Quaternion = (axes.inverse() * rotation * axes).get_rotation_quaternion()
-	skeleton.set_bone_pose_rotation(index, local_delta * rest_rotations[index])
+	# Cached rest-axis quaternions avoid per-bone matrix inversion/conversion every frame.
+	var world_rotation: Quaternion = Quaternion(Vector3.BACK, offset.z) * Quaternion(Vector3.RIGHT, offset.x) * Quaternion(Vector3.UP, offset.y)
+	var local_delta: Quaternion = parent_inverse_quaternions[index] * world_rotation * parent_quaternions[index]
+	_write_rotation(index, local_delta * rest_rotations[index])
 
-func _apply_expressions(values: Dictionary) -> void:
-	for binding: Dictionary in shape_bindings.values():
-		binding.mesh.set_blend_shape_value(binding.shape, 0.0)
-	for expression_name: String in values:
+func _write_rotation(index: int, rotation: Quaternion) -> void:
+	if not rotation.is_equal_approx(_last_rotations[index]):
+		skeleton.set_bone_pose_rotation(index, rotation)
+		_last_rotations[index] = rotation
+		bone_writes += 1
+
+func _cache_face_bindings() -> void:
+	var slots: Dictionary = {}
+	# Only the four owned facial layers are evaluated. Other imported expressions remain available.
+	for expression_name: String in ["blink", "aa", "relaxed", "sad"]:
+		var bindings: Array = []
 		for binding: Dictionary in expressions.get(expression_name, []):
-			var mesh: MeshInstance3D = binding.mesh
-			var current: float = mesh.get_blend_shape_value(binding.shape)
-			mesh.set_blend_shape_value(binding.shape, clampf(current + binding.value * float(values[expression_name]), 0.0, 1.0))
+			var key: String = "%d:%d" % [binding.mesh.get_instance_id(), binding.shape]
+			if not slots.has(key):
+				slots[key] = _face_meshes.size()
+				_face_meshes.append(binding.mesh)
+				_face_shapes.append(binding.shape)
+				_face_last.append(0.0)
+				_face_target.append(0.0)
+			bindings.append(Vector2(float(slots[key]), binding.value))
+		_face_bindings.append(bindings)
+
+func _update_face() -> void:
+	_face_target.fill(0.0)
+	for expression_index in _face_bindings.size():
+		for binding: Vector2 in _face_bindings[expression_index]:
+			_face_target[int(binding.x)] += binding.y * _face_weights[expression_index]
+	for slot in _face_shapes.size():
+		var value: float = clampf(_face_target[slot], 0.0, 1.0)
+		if absf(value - _face_last[slot]) > 0.0001 or (value == 0.0 and _face_last[slot] != 0.0):
+			_face_meshes[slot].set_blend_shape_value(_face_shapes[slot], value)
+			_face_last[slot] = value
+			face_writes += 1
+
+func set_visual_quality(preset: int) -> void:
+	preset = clampi(preset, 0, 2)
+	if preset == visual_quality:
+		return
+	visual_quality = preset
+	for slot: Dictionary in material_slots:
+		var original: ShaderMaterial = slot.original as ShaderMaterial
+		if original == null:
+			continue
+		if preset == 2:
+			slot.mesh.set_surface_override_material(slot.surface, original)
+			continue
+		var cache_key: String = "%d:%d" % [original.get_instance_id(), preset]
+		if not _fast_materials.has(cache_key):
+			var shader_name: String = original.shader.resource_path.get_file()
+			var suffix: String = ""
+			if shader_name.contains("trans"):
+				suffix = "_alpha_double" if shader_name.contains("cull_off") else "_alpha"
+			elif shader_name.contains("cull_off"):
+				suffix = "_double"
+			var material: ShaderMaterial = ShaderMaterial.new()
+			material.shader = load("res://assets/character/simple_toon%s.gdshader" % suffix)
+			material.resource_name = original.resource_name + " (efficient)"
+			material.render_priority = original.render_priority
+			for parameter: String in ["_MainTex", "_Color", "_MainTex_ST", "_Cutoff"]:
+				var value: Variant = original.get_shader_parameter(parameter)
+				if value != null: material.set_shader_parameter(parameter, value)
+			var base_color: Color = original.get_shader_parameter("_Color")
+			material.set_shader_parameter("_Color",_lit_color(base_color))
+			material.set_shader_parameter("shade_strength", 0.10 if preset == 0 else 0.16)
+			_fast_materials[cache_key] = material
+		slot.mesh.set_surface_override_material(slot.surface, _fast_materials[cache_key])
+
+func _lit_color(color: Color) -> Color:
+	var gain: float = 0.8+lighting*0.2
+	return Color(color.r*gain,color.g*gain,color.b*gain,color.a)
+
+func set_lighting(value: float) -> void:
+	if is_equal_approx(value,lighting): return
+	lighting = value
+	# Preset/slider events only. Keep the source colors and transparency intact.
+	for slot: Dictionary in material_slots:
+		for preset in 2:
+			var key: String = "%d:%d" % [slot.original.get_instance_id(),preset]
+			if _fast_materials.has(key):
+				_fast_materials[key].set_shader_parameter("_Color",_lit_color(slot.original.get_shader_parameter("_Color")))

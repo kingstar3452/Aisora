@@ -124,21 +124,20 @@ func run() -> void:
 	check(policy.frame_cap(false) == 15, "Invalid FPS limit is clamped to safe range")
 	# Procedural environment structure and actual particle work limits.
 	var park: AisoraSakuraPark = app.park
-	check(park.tree_count == 8 and park.blossom_batches.size() == 3, "Eight trees share three opaque blossom batches")
-	check(park.bench.get_node("SeatAndBack").multimesh.instance_count == 7 and park.bench.get_node("Frame").multimesh.instance_count == 4, "Wooden bench batches seat/back/legs")
-	check(park.get_node("SakuraTrunks").multimesh.instance_count == 8 and park.get_node("SakuraBranches").multimesh.instance_count == 40, "Tree trunks and branches use two static batches")
+	check(park.tree_count == 8 and park.blossom_batches.size() == 1, "Eight trees share one textured canopy batch")
+	check(park.bench.position.x > 0.8 and park.get_node("GardenFurniture").mesh.get_faces().size() > 100, "Small bench and lantern use merged furniture geometry")
+	check(park.branch_count == 40 and park.get_node("TreeWood").mesh.get_surface_count() == 1, "Curved trunks and forty branches share one static surface")
 	check(park.get_node_or_null("WalkingPath") != null and park.get_node_or_null("GrassGround") != null, "Path and grass exist")
 	park.petal_density = 1.0
 	park.low_power = false
+	park.quality = 2
 	park.apply_performance()
 	check(park.petals.multimesh.visible_instance_count == 56, "Petal upper bound is 56")
-	var petal_start: Vector3 = park.petal_positions[0]
-	park._process(0.1)
-	check(park.petal_positions[0] != petal_start, "Visible petals fall")
+	check(not park.is_processing() and park.petals.multimesh.use_custom_data, "Petals use static GPU seeds without per-frame CPU processing")
 	park.suspended = true
-	petal_start = park.petal_positions[0]
-	park._process(1.0)
-	check(park.petal_positions[0] == petal_start, "Inactive/minimized stops decorative petal updates")
+	check(float(park.petal_material.get_shader_parameter("pause_time")) >= 0.0, "Inactive/minimized pauses decorative shader time")
+	park.suspended = false
+	check(float(park.petal_material.get_shader_parameter("pause_time")) == -1.0, "Resume restores analytic petal motion without a CPU catch-up loop")
 	park.low_power = true
 	park.apply_performance()
 	check(park.petals.multimesh.visible_instance_count == 12, "Low-power caps petals at 12")

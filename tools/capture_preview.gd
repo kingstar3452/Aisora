@@ -7,12 +7,17 @@ func _initialize() -> void:
 func capture() -> void:
 	root.size = Vector2i(1280, 800)
 	var app: Node = load("res://scenes/companion.tscn").instantiate()
+	app.settings_path = "user://preview-no-preferences-%d.cfg" % Time.get_ticks_usec()
 	root.add_child(app)
 	app.set_process(false)
 	app.character.set_process(false)
 	app.park.set_process(false)
 	app.bridge.set_process(false)
 	app.animation_intensity = 1.0
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--quality="):
+			app.quality = int(argument.trim_prefix("--quality="))
+	app._apply_quality()
 	app._apply_performance_settings()
 	var samples: Array[Dictionary] = [{"name": "preview", "state": 0, "seconds": 1.2}]
 	if OS.get_cmdline_user_args().has("--sheet"):

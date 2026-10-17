@@ -39,6 +39,10 @@ var gesture_side: float = 1.0
 var last_gesture: String = ""
 var gesture_serial: int = 0
 var phase: float = 0.0
+const EMPTY_POSE: Dictionary = {}
+var _gesture_work: Dictionary = {}
+var _gesture_work_name: String = ""
+var _limits: Dictionary = {}
 
 func _init(seed_value: int = 0) -> void:
 	if seed_value == 0:
@@ -48,6 +52,14 @@ func _init(seed_value: int = 0) -> void:
 	phase = rng.randf_range(0.0, TAU)
 	breath_phase = phase
 	gesture_wait = rng.randf_range(3.0, 6.0)
+
+	layers = {
+		"breathing": {"Spine": Vector3.ZERO, "Chest": Vector3.ZERO},
+		"posture": {"Spine": Vector3.ZERO, "Chest": Vector3.ZERO, "Neck": Vector3.ZERO, "Head": Vector3.ZERO, "LeftShoulder": Vector3.ZERO, "RightShoulder": Vector3.ZERO, "LeftUpperArm": Vector3.ZERO, "RightUpperArm": Vector3.ZERO, "LeftLowerArm": Vector3.ZERO, "RightLowerArm": Vector3.ZERO, "LeftHand": Vector3.ZERO, "RightHand": Vector3.ZERO},
+		"gaze": {"Head": Vector3.ZERO, "Neck": Vector3.ZERO},
+		"speech": {"Head": Vector3.ZERO, "Chest": Vector3.ZERO},
+		"gesture": {}
+	}
 
 func transition_to(next: int) -> void:
 	if mode == next:
@@ -81,8 +93,9 @@ func tick(delta: float, audio_mouth: float) -> Dictionary:
 	var dt: float = minf(delta, 0.1)
 	time += dt
 	intensity = clampf(intensity, 0.0, 1.6)
+	var state_blend: float = 1.0 - exp(-dt * 3.8)
 	for state: int in weights:
-		weights[state] = lerpf(float(weights[state]), 1.0 if state == mode else 0.0, 1.0 - exp(-dt * 3.8))
+		weights[state] = lerpf(float(weights[state]), 1.0 if state == mode else 0.0, state_blend)
 	sleep_progress = move_toward(sleep_progress, 1.0 if mode == SLEEPING else 0.0, dt / (2.4 if mode == SLEEPING else 1.8))
 	sleep_amount = smoothstep(0.0, 1.0, sleep_progress)
 	wake_time += dt
@@ -97,40 +110,31 @@ func tick(delta: float, audio_mouth: float) -> Dictionary:
 	var breath: float = sin(breath_phase)
 	var sway: float = (sin(time * 0.63 + phase) * 0.55 + posture.x * 0.45) * intensity * awake
 	var wake: float = sin(clampf(wake_time / 2.6, 0.0, 1.0) * PI) * intensity
-	layers = {}
-	layers.breathing = {
-		"Spine": Vector3(breath * 0.016 * intensity, 0.0, 0.0),
-		"Chest": Vector3(breath * 0.013 * intensity, 0.0, 0.0)
-	}
-	layers.posture = {
-		"Spine": Vector3(sleep_amount * 0.10 - listen * 0.025 - wake * 0.025, think * 0.045, sway * 0.025),
-		"Chest": Vector3(sleep_amount * 0.06, 0.0, -sway * 0.018),
-		"Neck": Vector3(sleep_amount * 0.045, 0.0, listen * 0.055),
-		"Head": Vector3(sleep_amount * 0.19 - wake * 0.07, think * 0.14, sleep_amount * 0.13 + listen * 0.07),
-		"LeftShoulder": Vector3(0.0, 0.0, -sleep_amount * 0.04 + wake * 0.045),
-		"RightShoulder": Vector3(0.0, 0.0, sleep_amount * 0.04 - wake * 0.045),
-		# Keep the resting hands outside this model's wide skirt; narrower arms clip it.
-		"LeftUpperArm": Vector3(-sleep_amount * 0.18, 0.0, -1.22 + sleep_amount * 0.10 + sway * 0.045),
-		"RightUpperArm": Vector3(-sleep_amount * 0.18 - think * 0.20, 0.0, 1.22 - sleep_amount * 0.10 + sway * 0.045 - think * 0.09),
-		"LeftLowerArm": Vector3(0.0, -0.16 - sleep_amount * 0.25, 0.0),
-		"RightLowerArm": Vector3(0.0, 0.16 + sleep_amount * 0.25 + think * 0.45, 0.0),
-		"LeftHand": Vector3(0.0, 0.0, -sleep_amount * 0.06),
-		"RightHand": Vector3(0.0, 0.0, sleep_amount * 0.06)
-	}
-	layers.gaze = {
-		"Head": Vector3(gaze.y * 0.07, gaze.x * 0.16, gaze.x * 0.035),
-		"Neck": Vector3(0.0, gaze.x * 0.055, sin(time * 0.41 + phase) * 0.025 * intensity * awake)
-	}
+	layers.breathing["Spine"] = Vector3(breath * 0.016 * intensity, 0.0, 0.0)
+	layers.breathing["Chest"] = Vector3(breath * 0.013 * intensity, 0.0, 0.0)
+	layers.posture["Spine"] = Vector3(sleep_amount * 0.10 - listen * 0.025 - wake * 0.025, think * 0.045, sway * 0.025)
+	layers.posture["Chest"] = Vector3(sleep_amount * 0.06, 0.0, -sway * 0.018)
+	layers.posture["Neck"] = Vector3(sleep_amount * 0.045, 0.0, listen * 0.055)
+	layers.posture["Head"] = Vector3(sleep_amount * 0.19 - wake * 0.07, think * 0.14, sleep_amount * 0.13 + listen * 0.07)
+	layers.posture["LeftShoulder"] = Vector3(0.0, 0.0, -sleep_amount * 0.04 + wake * 0.045)
+	layers.posture["RightShoulder"] = Vector3(0.0, 0.0, sleep_amount * 0.04 - wake * 0.045)
+	layers.posture["LeftUpperArm"] = Vector3(-sleep_amount * 0.18, 0.0, -1.22 + sleep_amount * 0.10 + sway * 0.045)
+	layers.posture["RightUpperArm"] = Vector3(-sleep_amount * 0.18 - think * 0.20, 0.0, 1.22 - sleep_amount * 0.10 + sway * 0.045 - think * 0.09)
+	layers.posture["LeftLowerArm"] = Vector3(0.0, -0.16 - sleep_amount * 0.25, 0.0)
+	layers.posture["RightLowerArm"] = Vector3(0.0, 0.16 + sleep_amount * 0.25 + think * 0.45, 0.0)
+	layers.posture["LeftHand"] = Vector3(0.0, 0.0, -sleep_amount * 0.06)
+	layers.posture["RightHand"] = Vector3(0.0, 0.0, sleep_amount * 0.06)
+	layers.gaze["Head"] = Vector3(gaze.y * 0.07, gaze.x * 0.16, gaze.x * 0.035)
+	layers.gaze["Neck"] = Vector3(0.0, gaze.x * 0.055, sin(time * 0.41 + phase) * 0.025 * intensity * awake)
 	var speech: float = clampf(audio_mouth * 2.0, 0.0, 1.0) * talk * intensity
-	layers.speech = {
-		"Head": Vector3(sin(time * 2.5 + phase) * 0.045 * speech, sin(time * 1.7) * 0.035 * speech, sin(time * 1.2) * 0.025 * speech),
-		"Chest": Vector3(0.0, sin(time * 1.1 + phase) * 0.025 * speech, 0.0)
-	}
+	layers.speech["Head"] = Vector3(sin(time * 2.5 + phase) * 0.045 * speech, sin(time * 1.7) * 0.035 * speech, sin(time * 1.2) * 0.025 * speech)
+	layers.speech["Chest"] = Vector3(0.0, sin(time * 1.1 + phase) * 0.025 * speech, 0.0)
 	hips_offset = Vector3((posture.x * 0.009 + sway * 0.005) * awake * intensity, breath * 0.0025 * intensity - sleep_amount * 0.008, posture.y * 0.003 * idle * intensity)
 	_update_gesture(dt)
 	layers.gesture = _gesture_pose(awake * intensity)
-	poses = {}
-	for layer: Dictionary in layers.values():
+	for bone: String in poses: poses[bone] = Vector3.ZERO
+	for layer_name: String in layers:
+		var layer: Dictionary = layers[layer_name]
 		for bone: String in layer:
 			poses[bone] = Vector3(poses.get(bone, Vector3.ZERO)) + Vector3(layer[bone])
 	_limit_poses()
@@ -179,36 +183,57 @@ func _update_gesture(dt: float) -> void:
 
 func _gesture_pose(strength: float) -> Dictionary:
 	if gesture.is_empty():
-		return {}
+		return EMPTY_POSE
 	var duration: float = float(GESTURE_DURATION[gesture])
 	var fade: float = smoothstep(0.0, 0.75, gesture_time) * (1.0 - smoothstep(duration - 0.8, duration, gesture_time)) * gesture_cancel * strength
-	var result: Dictionary = {}
+	if _gesture_work_name != gesture:
+		_gesture_work.clear()
+		_gesture_work_name = gesture
+	var result: Dictionary = _gesture_work
 	match gesture:
 		"wave":
-			result = {"LeftUpperArm": Vector3(-1.12, 0.0, 0.84), "LeftLowerArm": Vector3(0.0, -1.65, 0.0), "LeftHand": Vector3(0.0, sin(gesture_time * 8.0) * 0.20, 0.12), "Head": Vector3(0.0, -0.055, 0.075)}
+			result["LeftUpperArm"] = Vector3(-1.12, 0.0, 0.84)
+			result["LeftLowerArm"] = Vector3(0.0, -1.65, 0.0)
+			result["LeftHand"] = Vector3(0.0, sin(gesture_time * 8.0) * 0.20, 0.12)
+			result["Head"] = Vector3(0.0, -0.055, 0.075)
 		"stretch":
-			result = {"LeftUpperArm": Vector3(-0.28, 0.0, 1.38), "RightUpperArm": Vector3(-0.28, 0.0, -1.38), "LeftLowerArm": Vector3(0.0, -0.15, 0.0), "RightLowerArm": Vector3(0.0, 0.15, 0.0), "Spine": Vector3(-0.085, 0.0, 0.0), "Head": Vector3(-0.09, 0.0, 0.0)}
+			result["LeftUpperArm"] = Vector3(-0.28, 0.0, 1.38)
+			result["RightUpperArm"] = Vector3(-0.28, 0.0, -1.38)
+			result["LeftLowerArm"] = Vector3(0.0, -0.15, 0.0)
+			result["RightLowerArm"] = Vector3(0.0, 0.15, 0.0)
+			result["Spine"] = Vector3(-0.085, 0.0, 0.0)
+			result["Head"] = Vector3(-0.09, 0.0, 0.0)
 		"inspect":
-			result = {"Head": Vector3(-0.035, gesture_side * 0.22, gesture_side * 0.065), "Chest": Vector3(0.0, gesture_side * 0.065, 0.0)}
+			result["Head"] = Vector3(-0.035, gesture_side * 0.22, gesture_side * 0.065)
+			result["Chest"] = Vector3(0.0, gesture_side * 0.065, 0.0)
 		"settle":
-			result = {"Spine": Vector3(-0.025, 0.0, gesture_side * 0.045), "LeftShoulder": Vector3(0.0, 0.0, 0.065), "RightShoulder": Vector3(0.0, 0.0, -0.065), "Head": Vector3(0.025, 0.0, -gesture_side * 0.055)}
+			result["Spine"] = Vector3(-0.025, 0.0, gesture_side * 0.045)
+			result["LeftShoulder"] = Vector3(0.0, 0.0, 0.065)
+			result["RightShoulder"] = Vector3(0.0, 0.0, -0.065)
+			result["Head"] = Vector3(0.025, 0.0, -gesture_side * 0.055)
 		"explain":
-			result = {"RightUpperArm": Vector3(-0.65, 0.0, -0.24), "RightLowerArm": Vector3(0.0, 0.85, 0.0), "RightHand": Vector3(-0.15, 0.12, 0.0), "Head": Vector3(sin(gesture_time * 2.0) * 0.035, 0.04, -0.04)}
+			result["RightUpperArm"] = Vector3(-0.65, 0.0, -0.24)
+			result["RightLowerArm"] = Vector3(0.0, 0.85, 0.0)
+			result["RightHand"] = Vector3(-0.15, 0.12, 0.0)
+			result["Head"] = Vector3(sin(gesture_time * 2.0) * 0.035, 0.04, -0.04)
 		"nod":
-			result = {"Head": Vector3(sin(gesture_time / duration * TAU) * 0.075, 0.0, 0.0)}
+			result["Head"] = Vector3(sin(gesture_time / duration * TAU) * 0.075, 0.0, 0.0)
 	for bone: String in result:
 		result[bone] = Vector3(result[bone]) * fade
 	return result
 
 func _limit_poses() -> void:
 	for bone: String in poses:
-		var limit: Vector3 = Vector3(0.22, 0.20, 0.16)
-		if bone == "Head":
-			limit = Vector3(0.35, 0.38, 0.26)
-		elif bone.ends_with("UpperArm"):
-			limit = Vector3(1.25, 0.20, 1.48)
-		elif bone.ends_with("LowerArm"):
-			limit = Vector3(0.12, 1.95, 0.12)
-		elif bone.ends_with("Hand"):
-			limit = Vector3(0.28, 0.28, 0.28)
-		poses[bone] = Vector3(poses[bone]).clamp(-limit, limit)
+		if not _limits.has(bone):
+			var limit: Vector3 = Vector3(0.22, 0.20, 0.16)
+			if bone == "Head":
+				limit = Vector3(0.35, 0.38, 0.26)
+			elif bone.ends_with("UpperArm"):
+				limit = Vector3(1.25, 0.20, 1.48)
+			elif bone.ends_with("LowerArm"):
+				limit = Vector3(0.12, 1.95, 0.12)
+			elif bone.ends_with("Hand"):
+				limit = Vector3(0.28, 0.28, 0.28)
+			_limits[bone] = limit
+		var bound: Vector3 = _limits[bone]
+		poses[bone] = Vector3(poses[bone]).clamp(-bound, bound)

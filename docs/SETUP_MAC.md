@@ -2,9 +2,9 @@
 
 ## 1. Run the character
 
-Use Godot **4.6.3 standard**, Compatibility renderer, on macOS Ventura. Open `project.godot` and wait for the import progress to finish. Click Run Project. The default is a normal resizable window, lightweight graphics and 30 FPS. Enable Low-power mode for a 15 FPS foreground cap. Move the window onto the Samsung monitor before using F11/full-screen. macOS Spaces and “Displays have separate Spaces” settings affect which display owns a full-screen window.
+Use Godot **4.6.3 standard**, Compatibility renderer, on macOS Ventura. Open `project.godot` and wait for the import progress to finish. Click Run Project. The default is a normal resizable window, Low graphics and 30 FPS. Enable Low-power mode for a 15 FPS foreground cap. Move the window onto the Samsung monitor before using F11/full-screen. macOS Spaces and “Displays have separate Spaces” settings affect which display owns a full-screen window.
 
-The first import can take longer than later launches. Aisora should appear on the path in a sakura park, with breathing, irregular blinks and visible idle movement. Test states with 1–5; return to automatic with 0. Tab opens Performance & presentation: graphics quality, Low-power mode (15 FPS), animation intensity, petal density and foreground FPS. Choose a gesture and click Preview idle gesture to test it immediately. Settings remain in Godot's local `user://settings.cfg`; existing camera/audio/shortcut preferences are preserved. See [Phase 2](PHASE2.md) for performance limits and rest/wake timing.
+The first import can take longer than later launches. Aisora should appear on the path in a sakura park, with breathing, irregular blinks and visible idle movement. Test states with 1–5; return to automatic with 0. Tab opens Performance & presentation: Low/Balanced/High quality, Low-power mode (15 FPS), animation intensity, petal density, foreground FPS and an F3 frame-time overlay. Choose a gesture and click Preview idle gesture to test it immediately. Settings remain in Godot's local `user://settings.cfg`; existing camera/audio/shortcut preferences are preserved. See [Phase 3](PHASE3.md) for current presets, performance limits, local testing and rest/wake behavior.
 
 ## 2. Start the local bridge
 

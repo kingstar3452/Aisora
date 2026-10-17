@@ -1,5 +1,27 @@
 # Implementation and validation record
 
+## Phase 3: current validation
+
+Godot **4.6.3 official, Compatibility**, Linux cloud, 17 October 2026 UTC / 18 October Singapore. The final core check runs **164 checks/tests** with zero failures: 10 Python, 13 JavaScript, 35 actual-model/state, 58 retained animation/park/settings, 38 new optimization/preset/diagnostic and 10 real Godot/HTTP integration checks. Godot import and script log checks also pass. A clean staged-source archive independently imports from scratch and passes the 35 model and 38 Phase 3 checks. The original VRM SHA-256 remains `46f3ec42b2dca1558b936f37dc0927af906e294f278cf756c0c329a1d23dab68`.
+
+The new tests verify exact rest-axis quaternion equivalence on every actual bone, unchanged native-write skipping, cached amplitude mouth deformation/exact silence, independent imported expressions, lower-frequency hair while primary motion continues, all three presets' original texture retention, exact High material restoration, material reuse, lighting control/alpha preservation, low-power override/restoration, legacy preference migration/restart and F3's bounded sampling/checkbox behavior.
+
+A separate real OpenGL test passes **5 checks**: rendered petals move, paused petals remain stationary, and the character renders visibly in Low/Balanced/High. Software OpenGL previews for all eight existing samples (Idle, Wave, Stretch, Listening, Talking, Sleeping, Waking, Settings) render successfully. Simulated Chromium DOM testing passes two start/end cycles, unchanged conversation, no dictation, ambiguity refusal and navigation disconnect. These are fixtures, not a native ChatGPT session.
+
+Controlled uncapped comparisons show median per-run mean wall time **82.34 → 47.47 ms** while talking and **79.99 → 43.89 ms** while idle, with 47 → 29 draw calls in Low. See [PERFORMANCE.md](PERFORMANCE.md) for complete methodology, noisy ranges, p95, memory, preset costs and raw per-run records. This does **not** demonstrate steady 30 FPS in software or on the target iMac. CPU-script tail timing did not consistently improve; native rendering cost and shared-host stalls remain.
+
+The browser extension, bridge protocol/client, importer and original VRM are unchanged in Phase 3. The actual HTTP integration still verifies fresh status and amplitude mouth animation at a 5 FPS cap using a simulated browser/audio source. No cloud test certifies native consumer Voice, physical audio permissions/playback, macOS events/hotkeys, target iMac pacing/thermals or an exported Mac build. Follow [Phase 3 local testing](PHASE3.md) and [SETUP_MAC.md](SETUP_MAC.md).
+
+```sh
+./tools/check.sh
+# Requires a display (Xvfb/software OpenGL is sufficient for functional rendering):
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase3.gd
+python3 tests/browser_smoke.py --chromium /usr/bin/chromium
+```
+
+## Phase 2: historical record
+
+
 Phase 2 extends `dev/aisora-companion` using Godot **4.6.3 official**, Compatibility rendering, Python 3.12.14, Node 24.19 and local Chromium 154. Validation is in Linux cloud (18 October 2026, Singapore date), with an actual VRM and simulated consumer-browser/audio sources. It does not certify native Voice or performance on macOS.
 
 | Check | Result and meaning |

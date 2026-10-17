@@ -1,5 +1,7 @@
 # Phase 2: expressive Aisora in the sakura park
 
+Historical Phase 2 notes. For the current presets, render paths and park implementation, see [Phase 3](PHASE3.md).
+
 Continue using `dev/aisora-companion` / the updated pull request. Pull that branch in your existing checkout, reopen `project.godot` with **Godot 4.6.3**, let scripts import and run the project. No new packages, assets, APIs or extension reinstall are required. The original VRM bytes, browser controller protocol, local pairing file and existing camera/audio/shortcut preferences remain compatible.
 
 ## Try the changes

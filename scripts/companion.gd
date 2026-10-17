@@ -5,6 +5,7 @@ const Envelope = preload("res://scripts/audio_envelope.gd")
 const Bridge = preload("res://scripts/bridge_client.gd")
 const Park = preload("res://scripts/sakura_park.gd")
 const PerformancePolicy = preload("res://scripts/performance_policy.gd")
+const FrameDiagnostics = preload("res://scripts/frame_diagnostics.gd")
 
 var character: AisoraCharacter
 var envelope: AisoraAudioEnvelope = Envelope.new()
@@ -36,6 +37,11 @@ var performance: AisoraPerformancePolicy = PerformancePolicy.new()
 var animation_intensity: float = 1.0
 var petal_density: float = 0.45
 var performance_label: Label
+var diagnostics: AisoraFrameDiagnostics = FrameDiagnostics.new()
+var diagnostics_visible: bool = false
+var diagnostics_label: Label
+var diagnostics_toggle: CheckButton
+var _diagnostic_clock: float = 0.0
 
 func _ready() -> void:
 	settings.load(settings_path)
@@ -46,7 +52,9 @@ func _ready() -> void:
 	envelope.gain = clampf(float(settings.get_value("audio", "gain", 5.0)), 1.0, 15.0)
 	envelope.noise_gate = clampf(float(settings.get_value("audio", "gate", 0.012)), 0.001, 0.08)
 	voice_key = KEY_F8 if int(settings.get_value("controls", "voice_key", KEY_F8)) != KEY_F9 else KEY_F9
-	quality = clampi(int(settings.get_value("display", "quality", 0)), 0, 1)
+	# Preserve old preferences: old Standard (1) maps to High (2), old lightweight to Low.
+	quality = clampi(int(settings.get_value("display", "preset", 2 if int(settings.get_value("display", "quality", 0)) == 1 else 0)),0,2)
+	diagnostics_visible = bool(settings.get_value("performance", "diagnostics",false))
 	animation_intensity = clampf(float(settings.get_value("animation", "intensity", 1.0)), 0.0, 1.6)
 	petal_density = clampf(float(settings.get_value("environment", "petal_density", 0.45)), 0.0, 1.0)
 	performance.low_power = bool(settings.get_value("performance", "low_power", false))
@@ -72,7 +80,7 @@ func _build_stage() -> void:
 	sky.sky = backdrop
 	sky.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	sky.ambient_light_color = Color("fff0d9")
-	sky.ambient_light_energy = 0.68
+	sky.ambient_light_energy = 0.46
 	sky.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	environment.environment = sky
 	add_child(environment)
@@ -85,7 +93,7 @@ func _build_stage() -> void:
 	var fill: DirectionalLight3D = DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-15.0, 145.0, 0.0)
 	fill.light_color = Color("f4dfe7")
-	fill.light_energy = 0.22
+	fill.light_energy = 0.14
 	add_child(fill)
 	camera = Camera3D.new()
 	camera.fov = 35.0
@@ -176,6 +184,17 @@ func _build_ui() -> void:
 	action_row.add_child(automatic)
 	audio_label = _label("Output audio: off", 13)
 	action_row.add_child(audio_label)
+	diagnostics_label = _label("Warming up…",13,Color("e6f4eb"))
+	diagnostics_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	diagnostics_label.offset_left = -350
+	diagnostics_label.offset_top = -100
+	diagnostics_label.offset_right = -20
+	diagnostics_label.offset_bottom = -20
+	diagnostics_label.add_theme_color_override("font_shadow_color",Color("173f3b"))
+	diagnostics_label.add_theme_constant_override("shadow_outline_size",5)
+	diagnostics_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	diagnostics_label.visible = diagnostics_visible
+	root.add_child(diagnostics_label)
 	_build_settings(root)
 
 func _label(text: String, size: int, color: Color = Color("d9e4f1")) -> Label:
@@ -215,10 +234,11 @@ func _build_settings(root: Control) -> void:
 	state_select.item_selected.connect(_select_state)
 	box.add_child(state_select)
 	var quality_select: OptionButton = OptionButton.new()
-	quality_select.add_item("Graphics: lightweight · no AA")
-	quality_select.add_item("Graphics: standard · 2× AA")
+	quality_select.add_item("Low · efficient materials, fewer petals")
+	quality_select.add_item("Balanced · fuller foliage & detail")
+	quality_select.add_item("High · original MToon, 2× AA")
 	quality_select.select(quality)
-	quality_select.item_selected.connect(func(index: int): quality = index; _apply_quality(); _save())
+	quality_select.item_selected.connect(func(index: int): quality = index; _apply_quality(); _apply_performance_settings(); _save())
 	box.add_child(quality_select)
 	var low_power_toggle: CheckButton = CheckButton.new()
 	low_power_toggle.text = "Low-power mode · 15 FPS"
@@ -230,6 +250,11 @@ func _build_settings(root: Control) -> void:
 	_slider(box, "Foreground FPS limit", 15, 60, 5, fps_limit, func(value: float): fps_limit = int(value); _save())
 	performance_label = _label("30 FPS cap · foreground", 12, Color("9fdbc9"))
 	box.add_child(performance_label)
+	diagnostics_toggle = CheckButton.new()
+	diagnostics_toggle.text = "FPS / frame-time overlay · F3"
+	diagnostics_toggle.button_pressed = diagnostics_visible
+	diagnostics_toggle.toggled.connect(func(on: bool): diagnostics_visible = on; diagnostics_label.visible = on; _save())
+	box.add_child(diagnostics_toggle)
 	var gesture_select: OptionButton = OptionButton.new()
 	for item in ["Wave", "Stretch", "Look around", "Adjust posture"]:
 		gesture_select.add_item(item)
@@ -244,7 +269,7 @@ func _build_settings(root: Control) -> void:
 	box.add_child(gesture_button)
 	_slider(box, "Camera distance", 1.6, 4.0, 0.05, zoom, func(value: float): zoom = value; _update_camera(); _save())
 	_slider(box, "Camera height", 0.7, 1.5, 0.02, framing, func(value: float): framing = value; _update_camera(); _save())
-	_slider(box, "Lighting", 0.25, 2.0, 0.05, light_energy, func(value: float): light_energy = value; light.light_energy = value; _save())
+	_slider(box, "Lighting", 0.25, 2.0, 0.05, light_energy, func(value: float): light_energy = value; light.light_energy = value; character.set_lighting(value); _save())
 	_slider(box, "Mouth sensitivity", 1.0, 15.0, 0.25, envelope.gain, func(value: float): envelope.gain = value; _save())
 	_slider(box, "Silence threshold", 0.001, 0.08, 0.001, envelope.noise_gate, func(value: float): envelope.noise_gate = value; _save())
 	var key_select: OptionButton = OptionButton.new()
@@ -280,7 +305,9 @@ func _save() -> void:
 	settings.set_value("display", "distance", zoom)
 	settings.set_value("display", "height", framing)
 	settings.set_value("display", "light", light_energy)
-	settings.set_value("display", "quality", quality)
+	settings.set_value("display", "quality", 1 if quality == 2 else 0)
+	settings.set_value("display", "preset",quality)
+	settings.set_value("performance", "diagnostics",diagnostics_visible)
 	settings.set_value("animation", "intensity", animation_intensity)
 	settings.set_value("environment", "petal_density", petal_density)
 	settings.set_value("performance", "low_power", performance.low_power)
@@ -297,6 +324,12 @@ func _process(delta: float) -> void:
 	if character == null or bridge == null:
 		return
 	elapsed += delta
+	diagnostics.record(delta)
+	_diagnostic_clock += delta
+	if diagnostics_visible and _diagnostic_clock >= 0.5:
+		_diagnostic_clock = 0.0
+		var stats: Dictionary = diagnostics.snapshot()
+		diagnostics_label.text = "%.1f FPS · %.1f ms / frame\nP95 %.1f ms · Engine process %.2f ms\n%d draw calls · cap %d · %s" % [stats.fps,stats.mean_ms,stats.p95_ms,Performance.get_monitor(Performance.TIME_PROCESS)*1000.0,Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),Engine.max_fps,["Low","Balanced","High"][quality]]
 	var voice_active: bool = bridge.state.get("voice", "unknown") == "active"
 	var audio_fresh: bool = bool(bridge.state.get("capturing", false)) and (voice_active or manual_state == Character.State.TALKING)
 	var rms: float = float(bridge.state.get("rms", 0.0))
@@ -312,6 +345,7 @@ func _process(delta: float) -> void:
 	Engine.max_fps = performance.frame_cap(character.motion.is_resting())
 	var hidden: bool = not performance.focused or performance.minimized
 	park.suspended = hidden
+	character.backgrounded = hidden
 	var resting: bool = character.motion.is_resting()
 	if park.resting != resting:
 		park.resting = resting
@@ -341,6 +375,11 @@ func _input(event: InputEvent) -> void:
 		_select_state(event.keycode - KEY_0)
 	elif event.keycode == KEY_TAB:
 		settings_panel.visible = not settings_panel.visible
+	elif event.keycode == KEY_F3:
+		diagnostics_visible = not diagnostics_visible
+		diagnostics_label.visible = diagnostics_visible
+		diagnostics_toggle.set_pressed_no_signal(diagnostics_visible)
+		_save()
 	elif event.keycode == KEY_H:
 		ui_layer.visible = not ui_layer.visible
 	elif event.keycode == KEY_F11:
@@ -356,13 +395,19 @@ func _toggle_fullscreen() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 func _apply_quality() -> void:
-	get_viewport().msaa_3d = Viewport.MSAA_DISABLED if quality == 0 or performance.low_power else Viewport.MSAA_2X
+	get_viewport().msaa_3d = Viewport.MSAA_2X if quality == 2 and not performance.low_power else Viewport.MSAA_DISABLED
+	if character != null:
+		character.set_visual_quality(0 if performance.low_power else quality)
+		character.set_lighting(light_energy)
 
 func _apply_performance_settings() -> void:
 	if character != null:
 		character.animation_intensity = animation_intensity
 		character.low_power = performance.low_power
+		character.set_visual_quality(0 if performance.low_power else quality)
+		character.set_lighting(light_energy)
 	if park != null:
+		park.quality = quality
 		park.petal_density = petal_density
 		park.low_power = performance.low_power
 		park.apply_performance()
