@@ -1,27 +1,39 @@
 # Implementation and validation record
 
-Validated in the Linux cloud on 18 October 2026 (Singapore date), with **Godot 4.6.3 official**, Python 3.12.14, Node 24.19 and local Chromium 154. This is not a macOS or live consumer-Voice certification.
+Phase 2 extends `dev/aisora-companion` using Godot **4.6.3 official**, Compatibility rendering, Python 3.12.14, Node 24.19 and local Chromium 154. Validation is in Linux cloud (18 October 2026, Singapore date), with an actual VRM and simulated consumer-browser/audio sources. It does not certify native Voice or performance on macOS.
 
-| Milestone | Evidence | Remaining local verification |
-| --- | --- | --- |
-| 1 · VRM | Actual uploaded VRM 0.0 imported and instantiated. Face, Body and Hair meshes have textures; humanoid skeleton and mouth/blink expression bindings are present. Software OpenGL scene render inspected. Model bytes unchanged after moving its path. | Check appearance and materials on Intel macOS Compatibility renderer. |
-| 2 · Presentation / animation | Godot asset/state suite: **35 checks, zero failures**. Covers real mesh textures/bindings, each state, simultaneous blink + mouth, head motion, closed sleeping eyes/mouth, RMS attack/release/silence/staleness and sleep FPS cap. Render inspected for centered character, relaxed arms and full-body framing/stage. | Judge motion quality, macOS display/full-screen behavior, keyboard focus and comfort locally. |
-| 3 · Native Voice controller | **10 Python bridge tests** and **13 Node extension/policy tests** pass. Simulated ChatGPT DOM in real Chromium completes **two start/end cycles**, retains URL, ignores dictation, refuses ambiguity, disconnects after conversation navigation. Commands confirm a resulting visible control rather than treating a click as success. | Installed-extension and real native ChatGPT start/end unverified. Cloud administrator policy blocks unpacked extensions; real account/microphone permissions are not available here. No policy was changed to bypass that restriction. |
-| 4 · Output audio / lip sync | RMS analyzer test uses tab-only capture constraints, verifies scalar-only output, playback connection and track cleanup. Godot tests verify smoothing, silence and stale-data closure using the actual mouth shape. | Real tabCapture/offscreen permission, AudioContext start, speaker playback and output/microphone separation need Mac testing. No raw audio capture was performed in cloud. |
-| 5 · Integration / performance | Godot's real local HTTP client → Python bridge → simulated browser/output completes **5 checks**, including command-driven TALKING, actual facial movement, ending/silence and return to idle. Low-power Compatibility defaults, static gradient, no shadows/post effects, disabled spring modifier, state-specific FPS caps. | 30 FPS is a target, not a measured 2017 iMac result. Optional Carbon global hotkey cannot compile or run on this Linux host. |
+| Check | Result and meaning |
+| --- | --- |
+| Actual model / original states | **35 checks passed**. Face/Body/Hair textures, imported skeleton and facial bindings, all five states, simultaneous blink/mouth, silence/stale audio closure and sleep FPS behavior. Sleep checks now allow the deliberate 2.4-second settling transition. |
+| Phase 2 animation / park / settings | **57 checks passed**. Simultaneous layers on the actual skeleton, visible head/hair motion, wave hand above elbow, all gestures with finite rotations, slow sleeping breath, rest/wake transitions, focused listening gaze, amplitude-only mouth, intensity controls, deterministic randomized schedules, eight trees/three blossom batches/two branch batches, batched bench/path/grass, falling/off/capped/suspended petals, rendering policies, resizable-window defaults, and new/legacy/unknown preference persistence. |
+| Python local bridge | **10 tests passed**. Real loopback HTTP authentication, web-origin/rebinding rejection, command IDs, one-time delivery, timeout, error persistence, audio expiry/clamping and private pairing configuration. |
+| JavaScript extension/policy | **13 tests passed**. Voice-only matching and command policy, selected tab/conversation routing, capture constraints, scalar RMS calculation, playback reconnection and cleanup, refusal of ambiguous/disabled/dictation controls. Browser APIs are explicitly mocked. |
+| Godot ↔ real HTTP bridge | **10 checks passed** with simulated browser/output. Actual Godot HTTP command/status processing drives the real mouth shape and TALKING state. An active session and fresh status continue while render cap is **5 FPS**, end commands/silence still work while minimized, and foreground restoration returns to 30 FPS. |
+| Simulated ChatGPT DOM in Chromium | Two complete start/end cycles, unchanged conversation URL, no dictation activation, ambiguity refusal and disconnect on navigation. The fixture now waits for actual state/command acknowledgments instead of racing fixed 1.1-second sleeps against the one-second heartbeat. Only DOM and extension transport are simulated; no actual ChatGPT account is used. |
+| Rendered poses / park | Software OpenGL previews inspected for Idle, Wave, Stretch, Listening, Talking, Sleeping, Waking and Settings. Actual original character remains in the foreground; hand/shoulder gestures, rest pose, path/grass/trees/bench, opaque petals and performance menu render. |
+
+The new minimized test first exposed render-dependent HTTP progress/timeouts in the original client. Using Godot's supported `HTTPRequest.use_threads` for both requests fixes it; the same test now passes at 5 FPS. Failed/empty responses also avoid noisy JSON parsing errors. This tests the local controller, not the remote consumer Voice service.
 
 ## Reproduce
 
 ```sh
 ./tools/check.sh
-# Optional: requires Python Playwright and local Chromium, no real ChatGPT/profile:
+# Optional: Python Playwright + a local Chromium executable, never a real ChatGPT/profile:
 python3 tests/browser_smoke.py --chromium /usr/bin/chromium
-# Optional: requires a display; outputs ignored .local/preview.png:
-./tools/run_godot.sh --audio-driver Dummy --script res://tools/capture_preview.gd
+# Optional rendered pose set, requires a display:
+./tools/run_godot.sh --audio-driver Dummy --script res://tools/capture_preview.gd -- --sheet
 ```
 
-`check.sh` preserves command exit codes and checks Godot logs for parse/runtime errors as well. Godot import may emit editor progress messages; zero executed tests are not accepted as readiness. Browser API tests use mocks explicitly; browser DOM tests simulate only extension messaging and the ChatGPT UI. The live-local-bridge test uses actual HTTP/Godot with a simulated browser and scalar audio source. None contacts ChatGPT.
+`check.sh` preserves runner exit codes and verifies nonzero completed Godot suites and parse/runtime logs. The Phase 2 settings test uses an isolated temporary preference file and removes it, rather than modifying the user's preferences. Screenshots stay in ignored `.local/`.
 
-A software OpenGL render used an isolated Xvfb display and Mesa llvmpipe. The virtual driver warned that changing VSync is unsupported; the render completed without shader/runtime errors using Godot's Dummy audio driver, since no physical cloud audio output exists. Screenshots stay in ignored `.local/` and are not published as character assets.
+Batching tree branches and bench parts reduced the inspected Settings scene from 170 to 115 draw calls; the primitive monitor remained 104,461. These are software-renderer/debug-scene counts, not a target-machine FPS result.
 
-The repository includes no conventional game motion clips; all listed motion is procedural. Hair physics is deliberately disabled for the default low-power workflow. Unsupported native controls, browser restrictions and missing permissions remain explicit errors/manual fallbacks instead of fabricated success.
+Software rendering uses Xvfb/Mesa llvmpipe and Dummy audio. The virtual display warns that changing VSync is unsupported. It is useful for render inspection, not an Intel iMac frame-rate or thermal benchmark. No physical output audio was captured.
+
+## Not verified on this machine
+
+- Native ChatGPT Voice in an authenticated browser, real tabCapture permissions, audible playback, output-vs-microphone separation. Cloud browser administrator policy blocks unpacked extensions; it was not changed or bypassed.
+- macOS Ventura focus/minimize event delivery and wake/resume behavior with a real call, Samsung display/full-screen behavior, optional Carbon global F8 and sustained 2017 iMac CPU/GPU load. The automated background test supplies focus/minimize flags explicitly while using actual HTTP.
+- Full cloth/hair collision physics, foot IK or bench seating. Sleep is a standing resting pose; hair uses bounded root rotations. The original VRM remains byte-for-byte unchanged.
+
+Use [the Mac checklist](SETUP_MAC.md) and [performance controls](PHASE2.md) for those acceptance checks. No additional installation is required for Phase 2 beyond updating the existing branch and letting Godot import the scripts.

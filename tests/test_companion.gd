@@ -48,7 +48,8 @@ func run() -> void:
 	check(blink_binding.mesh.get_blend_shape_value(blink_binding.shape) > 0.5, "Blink coexists with speech")
 	for state in Character.State.values():
 		c.set_state(state)
-		for i in 30:
+		# Sleep now has a deliberate 2.4-second ease into its resting pose.
+		for i in (90 if state == Character.State.SLEEPING else 30):
 			c.tick(1.0 / 30.0)
 		check(c.state == state, "State enters: " + Character.STATE_NAMES[state])
 		check(c.skeleton.get_bone_pose_rotation(head).is_normalized(), "Finite head rotation: " + Character.STATE_NAMES[state])

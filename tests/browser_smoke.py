@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import tempfile
 import threading
+import time
 import urllib.request
 from playwright.sync_api import sync_playwright
 
@@ -72,32 +73,36 @@ def main():
                 page.goto('https://chatgpt.com/g/aisora/c/fixture')
                 for filename in ['voice_dom.js', 'content.js']:
                     page.add_script_tag(path=str(ROOT / 'browser-controller/extension' / filename))
-                page.wait_for_timeout(1200)
-                assert api('/v1/state')['voice'] == 'inactive'
+                def wait_state(predicate, timeout=6):
+                    deadline = time.monotonic() + timeout
+                    while time.monotonic() < deadline:
+                        snapshot = api('/v1/state')
+                        if predicate(snapshot):
+                            return snapshot
+                        # Pump browser/binding callbacks instead of sleeping across the one-second heartbeat.
+                        page.wait_for_timeout(50)
+                    raise AssertionError(f'Bridge did not reach expected state: {api("/v1/state")}')
+
+                wait_state(lambda s: s['voice'] == 'inactive' and not s['pending'])
                 for _ in range(2):
                     api('/v1/command', {'action': 'toggle'})
                     page.wait_for_function("document.querySelector('#voice').getAttribute('aria-label') === 'End voice'")
-                    page.wait_for_timeout(1100)
-                    assert api('/v1/state')['voice'] == 'active'
+                    wait_state(lambda s: s['voice'] == 'active' and not s['pending'])
                     api('/v1/command', {'action': 'toggle'})
                     page.wait_for_function("document.querySelector('#voice').getAttribute('aria-label') === 'Start voice mode'")
-                    page.wait_for_timeout(1100)
-                    assert api('/v1/state')['voice'] == 'inactive'
+                    wait_state(lambda s: s['voice'] == 'inactive' and not s['pending'])
                 assert page.url == 'https://chatgpt.com/g/aisora/c/fixture'
                 assert page.evaluate('window.clicks') == 4
                 assert page.evaluate('window.dictationClicks') == 0
                 # Actual DOM ambiguity: no activation and an explicit failed command result.
                 page.evaluate("document.body.insertAdjacentHTML('beforeend','<button aria-label=\"Use voice\">Duplicate</button>')")
-                page.wait_for_timeout(1100)
-                assert api('/v1/state')['voice'] == 'unknown'
+                wait_state(lambda s: s['connected'] and s['voice'] == 'unknown')
                 api('/v1/command', {'action': 'toggle'})
-                page.wait_for_timeout(1200)
+                wait_state(lambda s: not s['pending'])
                 assert page.evaluate('window.clicks') == 4
-                assert not api('/v1/state')['pending']
                 # No keep-alive when the selected conversation changes inside the same tab.
                 page.evaluate("history.pushState({}, '', '/c/other-conversation')")
-                page.wait_for_timeout(4300)
-                assert not api('/v1/state')['connected']
+                wait_state(lambda s: not s['connected'])
                 assert api('/v1/state')['voice'] == 'unknown'
                 print('BROWSER SMOKE: two start/end cycles, unchanged conversation, no dictation, ambiguous-control refusal, navigation disconnect: PASS')
     finally:

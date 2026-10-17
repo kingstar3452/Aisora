@@ -2,9 +2,9 @@
 
 ## 1. Run the character
 
-Use Godot **4.6.3 standard**, Compatibility renderer, on macOS Ventura. Open `project.godot` and wait for the import progress to finish. Click Run Project. In Settings, start with Low power, 30 FPS and windowed mode. Move the window onto the Samsung monitor before using F11/full-screen. macOS Spaces and “Displays have separate Spaces” settings affect which display owns a full-screen window.
+Use Godot **4.6.3 standard**, Compatibility renderer, on macOS Ventura. Open `project.godot` and wait for the import progress to finish. Click Run Project. The default is a normal resizable window, lightweight graphics and 30 FPS. Enable Low-power mode for a 15 FPS foreground cap. Move the window onto the Samsung monitor before using F11/full-screen. macOS Spaces and “Displays have separate Spaces” settings affect which display owns a full-screen window.
 
-The first import can take longer than later launches. Aisora should have textures, relaxed arms, breathing, and irregular blinks. Test states with 1–5; return to automatic with 0. Settings are stored in Godot's local `user://settings.cfg`, not the repository.
+The first import can take longer than later launches. Aisora should appear on the path in a sakura park, with breathing, irregular blinks and visible idle movement. Test states with 1–5; return to automatic with 0. Tab opens Performance & presentation: graphics quality, Low-power mode (15 FPS), animation intensity, petal density and foreground FPS. Choose a gesture and click Preview idle gesture to test it immediately. Settings remain in Godot's local `user://settings.cfg`; existing camera/audio/shortcut preferences are preserved. See [Phase 2](PHASE2.md) for performance limits and rest/wake timing.
 
 ## 2. Start the local bridge
 
@@ -61,10 +61,10 @@ The alternative is **Command+Shift+8**. Disable/reassign the extension's equival
 ## Local acceptance checklist
 
 - Character, textures, blink, gentle motion and framing look correct; adjust camera height/distance as needed.
-- Test every state with 1–5; sleeping closes eyes and reduces frame cap; 0 resumes automatic states.
+- Test every state with 1–5 and preview Wave/Stretch/Look around/Adjust posture in Settings. Allow 2.4 seconds to settle into sleeping and 1.8 seconds to wake; 0 resumes automatic states.
 - Voice starts and ends **twice** through the selected existing Project conversation, without moving the conversation.
 - Permission/sign-in dialogs require normal user action; no click loop is started.
 - Output is audible once, mouth moves with ChatGPT speech, stays still during your microphone-only input, closes in silence and after capture stops.
-- Close/reopen the bridge: the viewer recovers. Close/reselect the ChatGPT tab: status and commands recover.
+- During an active call, switch away from Aisora and minimize its window. Voice should continue, then fresh status/mouth movement should return on restore. Inactive/minimized caps are 10/5 FPS. Close/reopen the bridge and reselect a closed ChatGPT tab to test recovery.
 - Test F8/F9, optional global helper, full-screen and the Samsung display locally.
 - Watch Activity Monitor for several minutes. Reduce resolution/FPS/quality if needed; 30 FPS is a configurable target, not an iMac benchmark measured in cloud.

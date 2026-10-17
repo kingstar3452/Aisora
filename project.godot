@@ -11,6 +11,10 @@ window/size/viewport_width=1280
 window/size/viewport_height=800
 window/size/window_width_override=1120
 window/size/window_height_override=700
+window/size/mode=0
+window/size/resizable=true
+window/size/min_width=800
+window/size/min_height=500
 window/stretch/mode="canvas_items"
 
 [audio]

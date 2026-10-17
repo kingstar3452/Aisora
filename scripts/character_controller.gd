@@ -1,7 +1,7 @@
 class_name AisoraCharacter
 extends Node3D
-## Procedural state machine layered over imported VRM expression bindings.
-## No assumed animation clips. Each frame starts from the imported resting pose.
+## Layers procedural movement over the actual imported VRM rest pose and facial bindings.
+const Motion = preload("res://scripts/motion_layers.gd")
 
 enum State { IDLE, LISTENING, THINKING, TALKING, SLEEPING }
 const STATE_NAMES: Array[String] = ["IDLE", "LISTENING", "THINKING", "TALKING", "SLEEPING"]
@@ -12,15 +12,16 @@ var expressions: Dictionary = {}
 var shape_bindings: Dictionary = {}
 var rest_rotations: Dictionary = {}
 var rest_positions: Dictionary = {}
-var weights: Dictionary = {}
+var motion: AisoraMotionLayers = Motion.new()
+var animation_intensity: float = 1.0
+var low_power: bool = true
+var bone_indices: Dictionary = {}
+var parent_rest_axes: Dictionary = {}
+var hair_roots: Array[int] = []
 var mouth: float = 0.0
 var time: float = 0.0
 var blink_wait: float = 2.0
 var blink_time: float = -1.0
-var look_wait: float = 0.0
-var gaze: Vector2 = Vector2.ZERO
-var gaze_target: Vector2 = Vector2.ZERO
-var state_blend: float = 0.0
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func _ready() -> void:
@@ -37,7 +38,13 @@ func _ready() -> void:
 		for i in skeleton.get_bone_count():
 			rest_rotations[i] = skeleton.get_bone_pose_rotation(i)
 			rest_positions[i] = skeleton.get_bone_pose_position(i)
-	# Hair physics is optional. Keep its authored pose and avoid per-frame springs.
+			var bone_name: String = skeleton.get_bone_name(i)
+			bone_indices[bone_name] = i
+			var parent: int = skeleton.get_bone_parent(i)
+			parent_rest_axes[i] = skeleton.get_bone_global_rest(parent).basis if parent >= 0 else Basis.IDENTITY
+			if bone_name.begins_with("J_Sec_Hair1_") and skeleton.get_bone_name(parent) == "Head":
+				hair_roots.append(i)
+	# Keep the authored baseline; bounded procedural roots replace per-frame springs.
 	_disable_secondary(model)
 
 func _disable_secondary(node: Node) -> void:
@@ -76,7 +83,10 @@ func _scan(node: Node) -> void:
 func set_state(next: State) -> void:
 	if state != next:
 		state = next
-		state_blend = 0.0
+		motion.transition_to(next)
+
+func play_gesture(name: String) -> bool:
+	return motion.start_gesture(name)
 
 func _process(delta: float) -> void:
 	tick(delta)
@@ -85,61 +95,57 @@ func tick(delta: float) -> void:
 	if skeleton == null:
 		return
 	time += delta
-	state_blend = minf(state_blend + delta * 3.0, 1.0)
+	motion.intensity = animation_intensity
+	var poses: Dictionary = motion.tick(delta, mouth)
+	for bone_name: String in poses:
+		_world_pose(bone_name, poses[bone_name])
+	var hips: int = int(bone_indices.get("Hips", -1))
+	if hips >= 0:
+		skeleton.set_bone_pose_position(hips, Vector3(rest_positions[hips]) + motion.hips_offset)
+	# Small authored-axis root rotations provide wind/secondary lag without spring collisions.
+	for i in hair_roots.size():
+		var index: int = hair_roots[i]
+		var hair_offset: Vector3 = Vector3.ZERO
+		if not low_power or i % 2 == 0:
+			var strength: float = animation_intensity * (1.0 - motion.sleep_amount * 0.8)
+			hair_offset = Vector3(sin(time * 1.4 + i * 0.7) * 0.032, 0.0, sin(time * 1.1 + i) * 0.04) * strength
+		skeleton.set_bone_pose_rotation(index, rest_rotations[index] * Quaternion.from_euler(hair_offset))
+	# Eye rotations use the imported eye rest axes; head/gaze and eyelids never own the same track.
+	_local_pose("LeftEye", Vector3(motion.gaze.y * 0.025, 0.0, motion.gaze.x * 0.065))
+	_local_pose("RightEye", Vector3(motion.gaze.y * 0.025, 0.0, motion.gaze.x * 0.065))
 	blink_wait -= delta
 	if blink_wait <= 0.0 and blink_time < 0.0:
 		blink_time = 0.0
-		blink_wait = rng.randf_range(2.5, 6.5)
+		blink_wait = rng.randf_range(2.5, 6.5) if rng.randf() > 0.16 else 0.42
 	var blink: float = 0.0
 	if blink_time >= 0.0:
 		blink_time += delta
-		blink = sin(clampf(blink_time / 0.18, 0.0, 1.0) * PI)
-		if blink_time >= 0.18:
+		blink = sin(clampf(blink_time / 0.20, 0.0, 1.0) * PI)
+		if blink_time >= 0.20:
 			blink_time = -1.0
 			blink = 0.0
-	look_wait -= delta
-	if look_wait <= 0.0:
-		gaze_target = Vector2(rng.randf_range(-1.0, 1.0), rng.randf_range(-0.4, 0.4))
-		look_wait = rng.randf_range(2.0, 5.0)
-	gaze = gaze.lerp(gaze_target, 1.0 - exp(-delta * 2.0))
-	var sleepy: float = _weight("sleep", 1.0 if state == State.SLEEPING else 0.0, delta)
-	var attentive: float = _weight("listen", 1.0 if state == State.LISTENING else 0.0, delta)
-	var thoughtful: float = _weight("think", 1.0 if state == State.THINKING else 0.0, delta)
-	var talking: float = _weight("talk", 1.0 if state == State.TALKING else 0.0, delta)
-	var movement: float = 1.0 - sleepy * 0.85
-	_pose("Spine", Vector3(sin(time * 1.5) * 0.009 * movement + sleepy * 0.04, 0.0, sin(time * 0.35) * 0.012 * movement))
-	_pose("Neck", Vector3(0.0, sin(time * 0.31) * 0.025 * movement, attentive * 0.07))
-	_pose("Head", Vector3(sleepy * 0.12 + sin(time * 0.9) * 0.015 * movement, thoughtful * 0.12 + gaze.x * 0.025 * movement, attentive * 0.045))
-	# Relax the imported T-pose in world coordinates, independently of bone axes.
-	_world_arm("LeftUpperArm", -1.22 + talking * sin(time * 1.8) * 0.035)
-	_world_arm("RightUpperArm", 1.22 + thoughtful * 0.08 + talking * sin(time * 1.3) * 0.045)
-	_pose("LeftLowerArm", Vector3(-0.12 - talking * 0.08, 0.0, 0.0))
-	_pose("RightLowerArm", Vector3(-0.12 - thoughtful * 0.12, 0.0, 0.0))
-	if rest_positions.has(skeleton.find_bone("Hips")):
-		var hips: int = skeleton.find_bone("Hips")
-		skeleton.set_bone_pose_position(hips, rest_positions[hips] + Vector3(0.0, sin(time * 1.5) * 0.002 * movement, 0.0))
-	# Eye rotations are tiny offsets from the authored rest, independent of eyelids.
-	_pose("LeftEye", Vector3(gaze.y * 0.02 * movement, 0.0, gaze.x * 0.035 * movement))
-	_pose("RightEye", Vector3(gaze.y * 0.02 * movement, 0.0, gaze.x * 0.035 * movement))
-	_apply_expressions({"blink": maxf(blink * (1.0 - sleepy), sleepy), "aa": mouth * (1.0 - sleepy), "relaxed": 0.10 * (1.0 - sleepy) + talking * 0.05, "sad": thoughtful * 0.06})
+	var sleep: float = motion.sleep_amount
+	var awake: float = 1.0 - sleep
+	var thought: float = float(motion.weights[State.THINKING])
+	var talk: float = float(motion.weights[State.TALKING])
+	# Do not invent a jaw bone: this VRM's aa morph contains the visible mouth/jaw deformation.
+	# Amplitude and silence still exclusively drive the mouth; gestures cannot open it.
+	_apply_expressions({"blink": lerpf(blink, 1.0, sleep), "aa": mouth * awake,
+		"relaxed": (0.13 + talk * 0.12) * awake, "sad": thought * 0.10 * awake})
 
-func _weight(key_name: String, target: float, delta: float) -> float:
-	var value: float = lerpf(float(weights.get(key_name, 0.0)), target, 1.0 - exp(-5.0 * delta))
-	weights[key_name] = value
-	return value
-
-func _pose(bone_name: String, offset: Vector3) -> void:
-	var index: int = skeleton.find_bone(bone_name)
+func _local_pose(bone_name: String, offset: Vector3) -> void:
+	var index: int = int(bone_indices.get(bone_name, -1))
 	if index >= 0:
 		skeleton.set_bone_pose_rotation(index, rest_rotations[index] * Quaternion.from_euler(offset))
 
-func _world_arm(bone_name: String, angle: float) -> void:
-	var index: int = skeleton.find_bone(bone_name)
+func _world_pose(bone_name: String, offset: Vector3) -> void:
+	var index: int = int(bone_indices.get(bone_name, -1))
 	if index < 0:
 		return
-	var parent: int = skeleton.get_bone_parent(index)
-	var basis: Basis = skeleton.get_bone_global_rest(parent).basis
-	var local_delta: Quaternion = (basis.inverse() * Basis(Vector3.FORWARD, -angle) * basis).get_rotation_quaternion()
+	var axes: Basis = parent_rest_axes[index]
+	# Explicit order permits an upper-arm twist then relaxation, with mirrored elbow flexion.
+	var rotation: Basis = Basis(Vector3.BACK, offset.z) * Basis(Vector3.RIGHT, offset.x) * Basis(Vector3.UP, offset.y)
+	var local_delta: Quaternion = (axes.inverse() * rotation * axes).get_rotation_quaternion()
 	skeleton.set_bone_pose_rotation(index, local_delta * rest_rotations[index])
 
 func _apply_expressions(values: Dictionary) -> void:

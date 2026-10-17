@@ -44,7 +44,7 @@ def main():
                                     capture_output=True, text=True, timeout=25)
             print(result.stdout, end='')
             print(result.stderr, end='')
-            if result.returncode or '5 checks; 0 failures' not in result.stdout or 'SCRIPT ERROR' in result.stderr:
+            if result.returncode or '10 checks; 0 failures' not in result.stdout or 'SCRIPT ERROR' in result.stderr:
                 raise SystemExit(result.returncode or 1)
     finally:
         stopped.set()
