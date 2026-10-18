@@ -1,7 +1,9 @@
 /* Isolated extension world: no cookies, network interception, React internals, or transcripts. */
 (() => {
-  if (globalThis.__aisoraInstalled) return;
-  globalThis.__aisoraInstalled = true;
+  const version = '0.2.0';
+  if (globalThis.__aisoraInstalled === version) return;
+  globalThis.__aisoraStop?.();
+  globalThis.__aisoraInstalled = version;
   let busy = false;
   let options = {};
   let polling = false;
@@ -26,7 +28,19 @@
         testId: node.getAttribute('data-testid'), custom};
     });
   }
-  const inspect = () => AisoraVoiceDOM.inspect(collect());
+  function markers() {
+    const visible = selector => {
+      try { return [...document.querySelectorAll(selector)].some(node => {
+        const s = getComputedStyle(node);
+        return node.getClientRects().length && s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
+      }); } catch { return false; }
+    };
+    return {
+      permission: visible('[data-testid="voice-microphone-error"], [aria-label="Microphone permission denied"], [aria-label="Microphone access blocked"]'),
+      thinking: visible(options.thinkingSelector || '[data-testid="voice-thinking-indicator"]')
+    };
+  }
+  const inspect = () => AisoraVoiceDOM.inspect(collect(), markers());
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
   async function execute(command) {
@@ -48,6 +62,7 @@
   }
 
   async function tick() {
+    if (globalThis.__aisoraInstalled !== version) return;
     if (polling) return;
     polling = true;
     try {
@@ -55,11 +70,12 @@
       if (!selected?.selected) return;
       options = selected.options || {};
       const status = inspect();
-      const reply = await chrome.runtime.sendMessage({type: 'tick', path: location.pathname, voice: status.voice, diagnostic: status.diagnostic});
+      const reply = await chrome.runtime.sendMessage({type: 'tick', path: location.pathname, voice: status.voice, activity: status.activity, busy, diagnostic: status.diagnostic});
       if (reply?.command && !busy) void execute(reply.command);
     } catch { /* Bridge/browser restarts recover on the next heartbeat. */ }
     finally { polling = false; }
   }
-  setInterval(tick, 1000);
+  const timer = setInterval(tick, 1000);
+  globalThis.__aisoraStop = () => clearInterval(timer);
   void tick();
 })();

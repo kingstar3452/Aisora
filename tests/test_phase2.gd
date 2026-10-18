@@ -22,6 +22,7 @@ func run() -> void:
 	# Isolate persistence checks from the user's real preferences.
 	var preferences_path: String = "user://phase2-test-%d.cfg" % Time.get_ticks_usec()
 	var seed_preferences: ConfigFile = ConfigFile.new()
+	seed_preferences.set_value("environment","mode",1)
 	seed_preferences.set_value("display", "distance", 3.5)
 	seed_preferences.set_value("audio", "gain", 6.25)
 	seed_preferences.set_value("controls", "voice_key", KEY_F9)

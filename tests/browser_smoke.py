@@ -22,6 +22,8 @@ spec.loader.exec_module(bridge)
 
 HTML = '''<!doctype html><title>Aisora simulated Voice controls</title>
 <button aria-label="Start voice mode" id="voice">Voice</button>
+<div id="thinking" data-testid="voice-thinking-indicator" style="display:none">Thinking</div>
+<div id="permission" data-testid="voice-microphone-error" style="display:none">Permission needed</div>
 <button aria-label="Dictate" id="dictate">Dictation</button>
 <script>
 window.clicks = 0; window.dictationClicks = 0;
@@ -52,7 +54,7 @@ def main():
 
     def message(_source, msg):
         if msg['type'] == 'selected': return {'selected': msg['path'] == '/g/aisora/c/fixture', 'options': {}}
-        if msg['type'] == 'tick': return api('/v1/poll', {'voice': msg['voice'], 'diagnostic': msg['diagnostic']})
+        if msg['type'] == 'tick': return api('/v1/poll', {'voice': msg['voice'], 'activity': msg.get('activity', 'unknown'), 'busy': msg.get('busy', False), 'diagnostic': msg['diagnostic']})
         if msg['type'] == 'result': return api('/v1/result', {'id': msg['id'], 'ok': msg['ok']})
         raise AssertionError('Unexpected extension message')
 
@@ -88,12 +90,22 @@ def main():
                     api('/v1/command', {'action': 'toggle'})
                     page.wait_for_function("document.querySelector('#voice').getAttribute('aria-label') === 'End voice'")
                     wait_state(lambda s: s['voice'] == 'active' and not s['pending'])
+                    api('/v1/command', {'action': 'start'})
+                    wait_state(lambda s: s['voice'] == 'active' and not s['pending'])
+                    page.evaluate("document.querySelector('#thinking').style.display='block'")
+                    wait_state(lambda s: s['activity'] == 'thinking')
+                    page.evaluate("document.querySelector('#thinking').style.display='none'")
+                    wait_state(lambda s: s['activity'] == 'unknown')
                     api('/v1/command', {'action': 'toggle'})
                     page.wait_for_function("document.querySelector('#voice').getAttribute('aria-label') === 'Start voice mode'")
                     wait_state(lambda s: s['voice'] == 'inactive' and not s['pending'])
                 assert page.url == 'https://chatgpt.com/g/aisora/c/fixture'
                 assert page.evaluate('window.clicks') == 4
                 assert page.evaluate('window.dictationClicks') == 0
+                page.evaluate("document.querySelector('#permission').style.display='block'")
+                wait_state(lambda s: 'Microphone permission' in s['error'] and s['voice'] == 'unknown')
+                page.evaluate("document.querySelector('#permission').style.display='none'")
+                wait_state(lambda s: s['voice'] == 'inactive')
                 # Actual DOM ambiguity: no activation and an explicit failed command result.
                 page.evaluate("document.body.insertAdjacentHTML('beforeend','<button aria-label=\"Use voice\">Duplicate</button>')")
                 wait_state(lambda s: s['connected'] and s['voice'] == 'unknown')
@@ -104,7 +116,7 @@ def main():
                 page.evaluate("history.pushState({}, '', '/c/other-conversation')")
                 wait_state(lambda s: not s['connected'])
                 assert api('/v1/state')['voice'] == 'unknown'
-                print('BROWSER SMOKE: two start/end cycles, unchanged conversation, no dictation, ambiguous-control refusal, navigation disconnect: PASS')
+                print('BROWSER SMOKE: two start/end cycles, unchanged conversation, no dictation, explicit thinking/permission markers, ambiguous-control refusal, navigation disconnect: PASS')
     finally:
         server.shutdown()
         server.server_close()

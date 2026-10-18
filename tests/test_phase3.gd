@@ -11,6 +11,7 @@ func check(condition: bool, message: String) -> void:
 func run() -> void:
 	var path: String = "user://phase3-test-%d.cfg" % Time.get_ticks_usec()
 	var preferences: ConfigFile = ConfigFile.new()
+	preferences.set_value("environment","mode",1)
 	preferences.set_value("display","quality",1)
 	preferences.save(path)
 	var app: Node = load("res://scenes/companion.tscn").instantiate()

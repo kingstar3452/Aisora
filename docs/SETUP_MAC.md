@@ -1,10 +1,13 @@
 # Mac setup
 
+For the current hybrid background, extension 0.2.0 update/re-pairing, action controls and conservative Voice recovery, start with [Phase 4](PHASE4.md). The original setup below remains applicable.
+
+
 ## 1. Run the character
 
 Use Godot **4.6.3 standard**, Compatibility renderer, on macOS Ventura. Open `project.godot` and wait for the import progress to finish. Click Run Project. The default is a normal resizable window, Low graphics and 30 FPS. Enable Low-power mode for a 15 FPS foreground cap. Move the window onto the Samsung monitor before using F11/full-screen. macOS Spaces and “Displays have separate Spaces” settings affect which display owns a full-screen window.
 
-The first import can take longer than later launches. Aisora should appear on the path in a sakura park, with breathing, irregular blinks and visible idle movement. Test states with 1–5; return to automatic with 0. Tab opens Performance & presentation: Low/Balanced/High quality, Low-power mode (15 FPS), animation intensity, petal density, foreground FPS and an F3 frame-time overlay. Choose a gesture and click Preview idle gesture to test it immediately. Settings remain in Godot's local `user://settings.cfg`; existing camera/audio/shortcut preferences are preserved. See [Phase 3](PHASE3.md) for current presets, performance limits, local testing and rest/wake behavior.
+The first import can take longer than later launches. Aisora should appear over the original placeholder illustration (or your chosen local picture), with breathing, irregular blinks and visible idle movement. Test states with 1–5; return to automatic with 0. Tab opens Performance & presentation: Low/Balanced/High quality, Low-power mode (15 FPS), animation intensity, petal density, foreground FPS and an F3 frame-time overlay. Under Standing actions, choose one of the 15 supported actions and click Preview selected action after ending Voice. Settings remain in Godot's local `user://settings.cfg`; existing camera/audio/shortcut preferences are preserved. See [Phase 4](PHASE4.md) for background loading, scheduler controls, performance limits, local testing and standing rest/wake behavior.
 
 ## 2. Start the local bridge
 
@@ -15,7 +18,7 @@ cd /path/to/Aisora
 python3 browser-controller/bridge.py
 ```
 
-It binds only to `127.0.0.1:8765` and creates `.local/bridge.json` with a random, local-only pairing key. **This is not a ChatGPT credential.** It is excluded from Git and Godot imports/exports. Never paste that file into an issue or commit it. If port 8765 is occupied, run with `--port 8766`, then reselect the updated pairing file in the extension. Godot automatically reloads the local pairing file when disconnected.
+It binds only to `127.0.0.1:8765` and creates `.local/bridge.json` with a random, local-only pairing key. **This is not a ChatGPT credential.** It is excluded from Git and Godot imports/exports. Never paste that file into an issue or commit it. If port 8765 is occupied, run with `--port 8766`, then reselect the updated pairing file in the extension. Godot automatically reloads the local pairing file when disconnected. If using a saved override or an exported viewer, choose the current file in Godot Settings → Voice connection as well.
 
 ## 3. Install and pair the extension
 
@@ -61,7 +64,7 @@ The alternative is **Command+Shift+8**. Disable/reassign the extension's equival
 ## Local acceptance checklist
 
 - Character, textures, blink, gentle motion and framing look correct; adjust camera height/distance as needed.
-- Test every state with 1–5 and preview Wave/Stretch/Look around/Adjust posture in Settings. Allow 2.4 seconds to settle into sleeping and 1.8 seconds to wake; 0 resumes automatic states.
+- Test every state with 1–5 and preview all 15 supported standing actions in Settings. Load your preferred first background with the local picker and verify foot placement, aspect scaling, effects off/on and the optional 3D park. Allow 2.4 seconds to settle into sleeping and 1.8 seconds to wake; 0 resumes automatic states.
 - Voice starts and ends **twice** through the selected existing Project conversation, without moving the conversation.
 - Permission/sign-in dialogs require normal user action; no click loop is started.
 - Output is audible once, mouth moves with ChatGPT speech, stays still during your microphone-only input, closes in silence and after capture stops.

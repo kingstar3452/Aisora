@@ -22,17 +22,21 @@ for (const [id, type, message] of [
   ['bind', 'bind', 'Tab selected. Wait a second, then refresh status.'],
   ['capture', 'capture', 'Output capture started. Start native Voice normally.'],
   ['stopCapture', 'stopCapture', 'Output capture stopped.'],
+  ['startVoice', 'startVoice', 'Start requested. Confirm native Voice in ChatGPT.'],
+  ['endVoice', 'endVoice', 'End requested. Confirm native Voice ended.'],
+  ['releaseGuard', 'releaseGuard', 'Stale guard cleared. Use this only after ending Voice manually.'],
   ['toggle', 'toggle', 'Command sent. Confirm the Voice interface in ChatGPT.']
 ]) document.querySelector('#' + id).addEventListener('click', () => run(async () => {
   await send(type); status.textContent = message;
 }));
 document.querySelector('#refresh').addEventListener('click', () => run(refresh));
 document.querySelector('#selectors').addEventListener('click', () => run(async () => {
-  await send('selectors', {start: document.querySelector('#start').value.trim(), end: document.querySelector('#end').value.trim()});
+  await send('selectors', {start: document.querySelector('#start').value.trim(), end: document.querySelector('#end').value.trim(), thinking: document.querySelector('#thinking').value.trim()});
   status.textContent = 'Selectors saved. Confirm they target only Voice controls.';
 }));
-chrome.storage.local.get(['startSelector', 'endSelector']).then(data => {
+chrome.storage.local.get(['startSelector', 'endSelector', 'thinkingSelector']).then(data => {
   document.querySelector('#start').value = data.startSelector || '';
   document.querySelector('#end').value = data.endSelector || '';
+  document.querySelector('#thinking').value = data.thinkingSelector || '';
 });
 void run(refresh);

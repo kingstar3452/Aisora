@@ -9,12 +9,13 @@
     end: new Set(['end-voice-button', 'end-voice-mode-button'])
   };
   const normalize = value => String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
-  function inspect(buttons) {
+  function inspect(buttons, markers = {}) {
+    if (markers.permission === true) return {voice: 'unknown', activity: 'unknown', diagnostic: 'permission', start: null, end: null};
     const start = buttons.filter(b => b.visible && (['start', 'both'].includes(b.custom) || labels.start.has(normalize(b.label)) || ids.start.has(b.testId)));
     const end = buttons.filter(b => b.visible && (['end', 'both'].includes(b.custom) || labels.end.has(normalize(b.label)) || ids.end.has(b.testId)));
     if (start.length > 1 || end.length > 1 || (start.length && end.length))
       return {voice: 'unknown', diagnostic: 'ambiguous', start: null, end: null};
-    if (end.length === 1) return {voice: 'active', diagnostic: '', start: null, end: end[0]};
+    if (end.length === 1) return {voice: 'active', activity: markers.thinking === true ? 'thinking' : 'unknown', diagnostic: '', start: null, end: end[0]};
     if (start.length === 1) return {voice: 'inactive', diagnostic: '', start: start[0], end: null};
     return {voice: 'unknown', diagnostic: 'missing', start: null, end: null};
   }

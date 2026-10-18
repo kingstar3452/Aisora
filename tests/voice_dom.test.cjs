@@ -39,3 +39,12 @@ test('case/space normalization, never substring matching', () => {
   assert.equal(inspect([button('  START  VOICE  ')]).voice, 'inactive');
   assert.equal(inspect([button('Do not start voice now')]).voice, 'unknown');
 });
+
+test('permission errors refuse automation and thinking requires active Voice', () => {
+  const blocked=inspect([button('Start voice')],{permission:true});
+  assert.equal(blocked.diagnostic,'permission');
+  assert.throws(()=>plan('start',blocked));
+  assert.equal(inspect([button('End voice')],{thinking:true}).activity,'thinking');
+  assert.notEqual(inspect([button('Start voice')],{thinking:true}).activity,'thinking');
+  assert.equal(inspect([button('End voice')]).activity,'unknown');
+});

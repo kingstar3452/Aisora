@@ -23,6 +23,8 @@ class BridgeState:
         self.last_browser = -math.inf
         self.last_audio = -math.inf
         self.voice = "unknown"
+        self.activity = "unknown"
+        self.audio_error = ""
         self.rms = 0.0
         self.capturing = False
         self.pending = None
@@ -44,7 +46,8 @@ class BridgeState:
                     "capturing": connected and self.capturing and audio_fresh,
                     "rms": self.rms if connected and self.capturing and audio_fresh else 0.0,
                     "pending": self.pending is not None,
-                    "error": self.error if connected else "Browser disconnected. Open ChatGPT and pair the extension."}
+                    "activity": self.activity if connected and self.voice == "active" else "unknown",
+                    "error": " ".join(filter(None, [self.error, self.audio_error])) if connected else "Browser disconnected. Open ChatGPT and pair the extension."}
 
     def poll(self, data):
         with self.lock:
@@ -54,12 +57,17 @@ class BridgeState:
                 raise ValueError("Invalid Voice state")
             self.last_browser = self.clock()
             self.voice = voice
+            activity = data.get("activity", "unknown")
+            self.activity = activity if voice == "active" and activity in ("thinking", "unknown") else "unknown"
             if not self.pending:
                 # Only fixed, non-content diagnostic codes are accepted from the extension.
                 self.error = self.command_error or {"ambiguous": "Voice controls are ambiguous; use manual Voice.",
+                              "permission": "Microphone permission is blocked. Allow ChatGPT microphone access in the browser/macOS, then use Voice manually.",
                               "missing": "Voice controls not found; sign in or use manual Voice.",
                               "": ""}.get(data.get("diagnostic", ""), "Voice detection unavailable.")
-            if self.pending and not self.pending["dispatched"]:
+            if data.get("diagnostic") == "permission":
+                self.error = "Microphone permission is blocked. Allow ChatGPT microphone access in the browser/macOS, then use Voice manually."
+            if self.pending and not self.pending["dispatched"] and data.get("busy") is not True:
                 self.pending["dispatched"] = True
                 return {k: self.pending[k] for k in ("id", "action")}
             return None
@@ -97,6 +105,15 @@ class BridgeState:
                 raise ValueError("Invalid amplitude")
             if not isinstance(data.get("capturing"), bool):
                 raise ValueError("Invalid capture state")
+            diagnostic = data.get("diagnostic", "")
+            if diagnostic not in ("", "capture_denied", "capture_ended", "capture_failed"):
+                raise ValueError("Invalid capture diagnostic")
+            if diagnostic:
+                self.audio_error = {"capture_denied": "Tab output permission was denied. Retry capture from the selected tab; manual Voice still works.",
+                                    "capture_ended": "Tab output capture ended. Retry capture for lip sync; Voice may still be active.",
+                                    "capture_failed": "Tab output capture could not start. Check browser permissions; use manual Voice."}[diagnostic]
+            elif data["capturing"]:
+                self.audio_error = ""
             self.rms = max(0.0, min(1.0, rms))
             self.capturing = data["capturing"]
             self.last_audio = self.clock()

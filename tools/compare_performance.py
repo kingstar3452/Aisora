@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Sequential before/after benchmarks; standard library, no app dependencies.
-Baseline must be an imported Phase 2 checkout/archive. Runs the SAME GDScript
+Baseline must be an imported earlier checkout/archive. Runs the SAME GDScript
 harness against both projects; logs/results stay in ignored .local by default.
 """
 import argparse
@@ -14,6 +14,8 @@ import subprocess
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline', type=Path, required=True)
+    parser.add_argument('--baseline-label', default='phase2')
+    parser.add_argument('--current-label', default='phase3')
     parser.add_argument('--runs', type=int, default=3)
     parser.add_argument('--frames', type=int, default=180)
     parser.add_argument('--state', choices=['idle', 'talking'], default='talking')
@@ -29,8 +31,8 @@ def main():
     environment.setdefault('LP_NUM_THREADS', '2')
     samples = []
     suffix = '-idle' if args.state == 'idle' else ''
-    cases = [('phase2'+suffix, baseline, 0)]
-    cases += [('phase3-'+name+suffix, repo, ['low', 'balanced', 'high'].index(name))
+    cases = [(args.baseline_label+suffix, baseline, 0)]
+    cases += [(args.current_label+'-'+name+suffix, repo, ['low', 'balanced', 'high'].index(name))
               for name in dict.fromkeys(args.presets)]
     log_dir = repo / '.local/benchmarks'
     log_dir.mkdir(parents=True, exist_ok=True)

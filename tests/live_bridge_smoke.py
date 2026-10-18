@@ -27,7 +27,7 @@ def main():
         while not stopped.is_set():
             command = state.poll({'voice': voice})
             if command:
-                voice = 'active' if voice == 'inactive' else 'inactive'
+                voice = ('active' if voice == 'inactive' else 'inactive') if command['action'] == 'toggle' else ('active' if command['action'] == 'start' else 'inactive')
                 state.poll({'voice': voice})
                 state.result({'id': command['id'], 'ok': True})
             state.audio({'rms': 0.12 if voice == 'active' else 0.0, 'capturing': True})
@@ -41,10 +41,10 @@ def main():
             path.write_text(json.dumps({'port': server.server_port, 'key': key}))
             result = subprocess.run([str(ROOT / 'tools/run_godot.sh'), '--headless', '--script', 'res://tests/test_live_bridge.gd'],
                                     cwd=ROOT, env={**os.environ, 'AISORA_BRIDGE_CONFIG': str(path)},
-                                    capture_output=True, text=True, timeout=25)
+                                    capture_output=True, text=True, timeout=40)
             print(result.stdout, end='')
             print(result.stderr, end='')
-            if result.returncode or '10 checks; 0 failures' not in result.stdout or 'SCRIPT ERROR' in result.stderr:
+            if result.returncode or '15 checks; 0 failures' not in result.stdout or 'SCRIPT ERROR' in result.stderr:
                 raise SystemExit(result.returncode or 1)
     finally:
         stopped.set()

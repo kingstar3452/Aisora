@@ -41,6 +41,24 @@ func run() -> void:
 	app.fps_limit = 30
 	app.performance.low_power = false
 	check(await wait_until(func(): return Engine.max_fps == 30), "Restoring focus restores foreground frame cap")
+	await wait_until(func(): return not app.bridge.command_pending())
+	app.bridge.start_voice()
+	check(await wait_until(func(): return app.character.state==AisoraCharacter.State.TALKING and app.character.mouth>0.2),"Explicit start reaches the actual HTTP workflow")
+	var original_pairing: String=OS.get_environment("AISORA_BRIDGE_CONFIG")
+	var wrong_path: String="user://live-wrong-pair-%d.json"%Time.get_ticks_usec()
+	var wrong: FileAccess=FileAccess.open(wrong_path,FileAccess.WRITE);wrong.store_string(JSON.stringify({"key":"2".repeat(64),"port":app.bridge.port}));wrong.close()
+	app.bridge.choose_pairing_file(wrong_path)
+	check(await wait_until(func(): return str(app.bridge.state.get("error","")).contains("Pairing rejected")) and app.bridge.session_may_be_active,"Real 401 is clear and retains the active-session animation guard")
+	app.bridge.choose_pairing_file(original_pairing)
+	check(await wait_until(func(): return app.bridge.state.get("voice","")=="active" and app.character.mouth>0.2),"Re-pairing reconnects to the ongoing simulated Voice session")
+	await wait_until(func(): return not app.bridge.command_pending())
+	app.bridge.start_voice()
+	await create_timer(1.0).timeout
+	check(app.bridge.state.get("voice","")=="active","Repeated absolute Start does not toggle or create a second session")
+	await wait_until(func(): return not app.bridge.command_pending())
+	app.bridge.end_voice()
+	check(await wait_until(func(): return app.bridge.state.get("voice","")=="inactive" and app.character.mouth==0.0 and not app.bridge.session_may_be_active),"Explicit End closes the mouth and releases the active-session guard")
+	DirAccess.remove_absolute(wrong_path)
 	print("LIVE LOCAL BRIDGE: ", checks, " checks; ", failures, " failures (browser/audio source simulated)")
 	app.queue_free()
 	await process_frame

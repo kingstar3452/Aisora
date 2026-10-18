@@ -15,7 +15,7 @@ function worker() {
     remove: async names => (Array.isArray(names) ? names : [names]).forEach(n => delete data[n])
   });
   const context = vm.createContext({URL, AbortSignal, Date, console,
-    fetch: async (url, options) => { calls.push({url, options}); return {ok: true, json: async () => ({command: null})}; },
+    fetch: async (url, options) => { calls.push({url, options}); return {ok: true, json: async () => url.endsWith('/health') ? {service: 'aisora', version: 1} : (url.endsWith('/v1/state') ? {connected: false, voice: 'unknown'} : {command: null})}; },
     chrome: {
       storage: {local: storage(local), session: storage(session)},
       runtime: {id: 'test-extension', getURL: p => 'chrome-extension://test-extension/' + p,
@@ -55,6 +55,8 @@ test('pairing rejects arbitrary hosts/keys and stores only local key and port', 
   assert.equal(w.local.pairing.port, 8766);
   assert.equal(w.local.pairing.host, undefined);
   assert.equal(w.calls[0].url, 'http://127.0.0.1:8766/health');
+  assert.equal(w.calls[1].url, 'http://127.0.0.1:8766/v1/state');
+  assert.equal(w.calls[1].options.headers['X-Aisora-Key'], 'b'.repeat(64));
 });
 test('binding is explicit and script injection never navigates or creates a chat', async () => {
   const w = worker();
@@ -97,7 +99,7 @@ test('offscreen meter captures tab output, preserves playback, emits RMS only, s
     chrome: {runtime: {onMessage: {addListener: f => listener = f}, sendMessage: async message => { messages.push(message); return {ok: true}; }}}
   });
   vm.runInContext(source('offscreen.js'), context);
-  const response = await new Promise(resolve => listener({destination: 'offscreen', type: 'capture', streamId: 'fake'}, {}, resolve));
+  const response = await new Promise(resolve => listener({destination: 'offscreen', type: 'capture', streamId: 'fake', tabId: 42}, {}, resolve));
   assert.equal(response.ok, true);
   assert.equal(constraints.audio.mandatory.chromeMediaSource, 'tab');
   assert.equal(constraints.audio.mandatory.chromeMediaSourceId, 'fake');
@@ -106,8 +108,64 @@ test('offscreen meter captures tab output, preserves playback, emits RMS only, s
   assert.equal(connections[1].speaker, true);
   await tick();
   assert.equal(messages.length, 1);
-  assert.deepEqual(Object.keys(messages[0]).sort(), ['capturing', 'rms', 'type']);
+  assert.deepEqual(Object.keys(messages[0]).sort(), ['capturing', 'rms', 'tabId', 'type']);
+  assert.equal(messages[0].tabId, 42);
   assert.ok(Math.abs(messages[0].rms - 0.2) < 1e-6);
   await context.stop();
   assert.ok(stopped && closed);
+});
+
+
+test('failed pairing keeps a working binding, and never trusts health alone', async () => {
+  const w = worker();
+  w.context.fetch = async url => ({ok: !url.endsWith('/v1/state'), json: async () => url.endsWith('/health') ? {service: 'aisora', version: 1} : {error: 'Unauthorized'}});
+  await assert.rejects(w.context.handle({type: 'pair', pairing: {port: 9999, key: 'b'.repeat(64)}}, w.popup), /Pairing rejected/);
+  assert.equal(w.local.pairing.port,8765);
+  assert.equal(w.local.pairing.key,'a'.repeat(64));
+});
+test('worker restart re-adopts only the selected tab meter, not another tab', async () => {
+  const w=worker();const sender={id:'test-extension',url:'chrome-extension://test-extension/offscreen.html'};
+  assert.equal((await w.context.handle({type:'audio',tabId:43,rms:.5,capturing:true},sender)).ok,false);
+  assert.equal(w.calls.length,0);
+  assert.equal((await w.context.handle({type:'audio',tabId:42,rms:.3,capturing:true},sender)).ok,true);
+  assert.equal(JSON.parse(w.calls[0].options.body).rms,.3);
+});
+test('capture attempts serialize and explicit start/end preserve intent', async () => {
+  const w=worker();
+  await Promise.all([w.context.handle({type:'capture'},w.popup),w.context.handle({type:'capture'},w.popup)]);
+  assert.equal(w.calls.filter(c=>c.capture).length,1);
+  for (const [type,action] of [['startVoice','start'],['endVoice','end']]) {
+    await w.context.handle({type},w.popup);
+    assert.equal(JSON.parse(w.calls.at(-1).options.body).action,action);
+  }
+});
+test('an observed active session blocks switching to a second conversation', async () => {
+  const w=worker();
+  await w.context.handle({type:'tick',path:'/g/aisora/c/fixture',voice:'active'},w.sender);
+  w.context.chrome.tabs.query=async()=>[{id:43,url:'https://chatgpt.com/c/other'}];
+  await assert.rejects(w.context.handle({type:'bind'},w.popup),/End Voice/);
+  assert.equal(w.session.targetId,42);
+  await w.context.handle({type:'tick',path:'/g/aisora/c/fixture',voice:'inactive'},w.sender);
+  await w.context.handle({type:'bind'},w.popup);
+  assert.equal(w.session.targetId,43);
+});
+test('unknown detection retains the guard until explicit manual release or tab closure', async () => {
+  const w=worker();
+  await w.context.handle({type:'tick',path:'/g/aisora/c/fixture',voice:'active'},w.sender);
+  await w.context.handle({type:'tick',path:'/g/aisora/c/fixture',voice:'unknown'},w.sender);
+  assert.equal(w.session.voiceOwner.tabId,42);
+  await w.context.handle({type:'releaseGuard'},w.popup);
+  assert.equal(w.session.voiceOwner,undefined);
+});
+
+
+test('output-capture permission failure returns only a fixed diagnostic', async () => {
+ let listener;
+ const context=vm.createContext({setTimeout,clearTimeout,clearInterval:()=>{},
+   navigator:{mediaDevices:{getUserMedia:async()=>{const error=new Error('private device detail');error.name='NotAllowedError';throw error;}}},
+   chrome:{runtime:{onMessage:{addListener:f=>listener=f}}}});
+ vm.runInContext(source('offscreen.js'),context);
+ const result=await new Promise(resolve=>listener({destination:'offscreen',type:'capture',streamId:'test',tabId:42},{},resolve));
+ assert.equal(result.ok,false);assert.equal(result.diagnostic,'capture_denied');
+ assert.equal(JSON.stringify(result).includes('private device detail'),false);
 });

@@ -1,6 +1,26 @@
 # Implementation and validation record
 
-## Phase 3: current validation
+## Phase 4: current validation
+
+Godot **4.6.3 official, Compatibility**, Linux cloud, 18 October 2026 UTC. The core runner passes **296 checks/tests**: 13 Python, 20 JavaScript, 35 actual-model/state, 58 retained Phase 2, 38 retained Phase 3, **117 Phase 4** and **15 real Godot/HTTP integration** checks. Import and script-error checks pass. A clean staged-source archive independently imports from scratch and passes the entire 296-check core runner. The original VRM SHA-256 remains `46f3ec42b2dca1558b936f37dc0927af906e294f278cf756c0c329a1d23dab68`.
+
+A separate real OpenGL suite passes **15 hybrid rendering checks**: aspect-preserving image circles, native canvas composition, original character visibility/proportions, amplitude mouth pixels, ground shadow, stationary effects at Off, animated/paused petals, Balanced/High transparency, fallback, resized positioning and settings without horizontal scrolling. The existing **5 Phase 3 render checks** also pass with the optional park selected. The standing-action gallery samples all 15 actions on the actual VRM at entrance, peak and exit; left/right gaze additionally samples both directions. It does not certify walk, turn, sit, floor rest or rising from a floor. Those remain unavailable, with standing sleep/wake retained.
+
+The Phase 4 suite exercises bounded PNG/JPEG/WebP loading, pre-decode dimension checks, private copies, invalid-image retention, transparent foreground rejection, texture budgets, layer pause/off/caps, lazy fallback geometry, anchor/scale persistence, actual finger joints, authored hand positions, eased poses, unavailable-action refusal, weighted/zero/single action scheduling, conversation fade/preview guards, explicit Thinking versus output amplitude, pairing rejection and settings migration. Browser tests cover authenticated pairing before replacement, capture serialization/readoption, session guards, fixed permission diagnostics, busy command deferral and fresh activity metadata.
+
+The live local HTTP fixture verifies fresh mouth/state updates with a **5 FPS** minimized render cap, explicit Start/End, repair after a real 401 during a simulated active call, conservative animation guarding while disconnected, and repeated Start preserving an ongoing call. Chromium's simulated page completes two start/end cycles without navigation or dictation, checks visible activity/permission markers, and refuses ambiguous controls. Browser/audio sources are fixtures; these results **do not establish native ChatGPT Voice support**.
+
+Controlled uncapped comparisons show median per-run mean **49.15 → 25.57 ms** talking and **43.84 → 21.55 ms** idle, with **29 → 24 draw calls** and **58,022 → 39,794 submitted primitives**. Talking p95 still exceeds 33.3 ms. Full Phase 3 comparisons and raw run records are in [PERFORMANCE_PHASE4.md](PERFORMANCE_PHASE4.md). They use the bundled original illustration, not the user-selected picture: the attached image files were not exposed in the cloud filesystem. The preferred first picture is supported through the local picker. Native authenticated Voice, real capture/playback/permissions, Mac file dialogs/window events/hotkeys, an exported build and sustained 2017 Intel iMac pacing/thermals remain untested. Follow [PHASE4.md](PHASE4.md) for local acceptance.
+
+```sh
+./tools/check.sh
+# Requires a display; Xvfb/software OpenGL suffices for functional checks:
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase4.gd
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase3.gd
+python3 tests/browser_smoke.py --chromium /usr/bin/chromium
+```
+
+## Phase 3: historical validation
 
 Godot **4.6.3 official, Compatibility**, Linux cloud, 17 October 2026 UTC / 18 October Singapore. The final core check runs **164 checks/tests** with zero failures: 10 Python, 13 JavaScript, 35 actual-model/state, 58 retained animation/park/settings, 38 new optimization/preset/diagnostic and 10 real Godot/HTTP integration checks. Godot import and script log checks also pass. A clean staged-source archive independently imports from scratch and passes the 35 model and 38 Phase 3 checks. The original VRM SHA-256 remains `46f3ec42b2dca1558b936f37dc0927af906e294f278cf756c0c329a1d23dab68`.
 

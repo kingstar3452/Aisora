@@ -2,13 +2,21 @@ class_name AisoraMotionLayers
 extends RefCounted
 ## Independent, composable pose layers in the imported skeleton's world rest axes.
 ## Mouth and eyelids remain separate facial layers in AisoraCharacter.
+const Catalog = preload("res://scripts/action_catalog.gd")
 const IDLE: int = 0
 const LISTENING: int = 1
 const THINKING: int = 2
 const TALKING: int = 3
 const SLEEPING: int = 4
-const GESTURE_DURATION: Dictionary = {"wave": 4.2, "stretch": 5.2, "inspect": 4.8, "settle": 3.4, "explain": 3.5, "nod": 2.0}
+const GESTURE_DURATION: Dictionary = {"wave": 4.2, "stretch": 5.2, "inspect": 4.8, "settle": 3.4, "explain": 3.5, "nod": 2.0, "breathe":4.8,"look_sides":5.8,"look_up":4.6,"look_down":4.2,"fingers":5.8,"hands":5.5,"back_stretch":5.0,"curious":4.0,"fold_arms":6.0,"hand_face":5.2,"weight_shift":5.5,"brush_hair":4.8,"playful":4.5}
 
+const ARM_BONES: Dictionary = {"Left":["LeftUpperArm","LeftLowerArm","LeftHand"],"Right":["RightUpperArm","RightLowerArm","RightHand"]}
+var conversation_active: bool = false
+var scheduler_enabled: bool = true
+var _scheduler_configured: bool = false
+var interval_min: float = 8.0
+var interval_max: float = 15.0
+var action_weights: Dictionary = Catalog.WEIGHTS.duplicate()
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var mode: int = IDLE
 var intensity: float = 1.0
@@ -70,10 +78,10 @@ func transition_to(next: int) -> void:
 	gaze_wait = 0.0
 	if not gesture.is_empty():
 		cancelling = true
-	gesture_wait = rng.randf_range(3.0, 6.0)
+	gesture_wait = rng.randf_range(interval_min,maxf(interval_min,interval_max)) if next==IDLE else rng.randf_range(3.0,6.0)
 
 func start_gesture(name: String) -> bool:
-	if mode == SLEEPING or not GESTURE_DURATION.has(name):
+	if mode == SLEEPING or not GESTURE_DURATION.has(name) or (conversation_active and name not in ["nod","explain"]):
 		return false
 	gesture = name
 	last_gesture = name
@@ -160,17 +168,34 @@ func _update_targets(dt: float) -> void:
 
 func _update_gesture(dt: float) -> void:
 	if not gesture.is_empty():
+		if conversation_active and gesture not in ["nod","explain"]: cancelling = true
 		gesture_time += dt
 		if cancelling:
 			gesture_cancel = move_toward(gesture_cancel, 0.0, dt * 2.8)
 		if gesture_time >= float(GESTURE_DURATION[gesture]) or gesture_cancel <= 0.0:
 			gesture = ""
-			gesture_wait = rng.randf_range(8.0, 15.0) if mode == IDLE else rng.randf_range(4.0, 8.0)
+			gesture_wait = rng.randf_range(clampf(interval_min,5.0,120.0),clampf(maxf(interval_min,interval_max),5.0,180.0)) if mode == IDLE else rng.randf_range(4.0, 8.0)
 		return
 	gesture_wait -= dt
 	if gesture_wait > 0.0 or mode == SLEEPING or sleep_amount > 0.1 or wake_time < 2.6 or intensity < 0.05:
 		return
-	var choices: Array = ["wave", "stretch", "inspect", "settle"]
+	if mode == IDLE:
+		if not scheduler_enabled or conversation_active:return
+		var available: int=0
+		for name: String in Catalog.IDS:
+			if float(action_weights.get(name,0.0))>0.0:available+=1
+		var total: float=0.0
+		for name: String in Catalog.IDS:
+			if name!=last_gesture or available==1:total+=clampf(float(action_weights.get(name,0.0)),0.0,5.0)
+		if total<=0.0:gesture_wait=1.0;return
+		var choice: float=rng.randf()*total
+		for name: String in Catalog.IDS:
+			if name==last_gesture and available>1:continue
+			choice-=clampf(float(action_weights.get(name,0.0)),0.0,5.0)
+			if choice<0.0:start_gesture(name);return
+		return
+	if conversation_active and mode==THINKING:return
+	var choices: Array = ["inspect", "settle"]
 	if mode == TALKING:
 		choices = ["explain", "nod"]
 	elif mode == LISTENING:
@@ -218,6 +243,64 @@ func _gesture_pose(strength: float) -> Dictionary:
 			result["Head"] = Vector3(sin(gesture_time * 2.0) * 0.035, 0.04, -0.04)
 		"nod":
 			result["Head"] = Vector3(sin(gesture_time / duration * TAU) * 0.075, 0.0, 0.0)
+		"breathe":
+			result["Chest"]=Vector3(sin(gesture_time/duration*PI)*0.045,0,0)
+			result["Head"]=Vector3(-0.035,0,0)
+			result["LeftShoulder"]=Vector3(0,0,0.045);result["RightShoulder"]=Vector3(0,0,-0.045)
+		"look_sides":
+			var turn: float=sin(gesture_time/duration*TAU)
+			result["Head"]=Vector3(0,turn*0.34,0);result["Neck"]=Vector3(0,turn*0.08,0)
+		"look_up":
+			result["Head"]=Vector3(-0.30,0,0);result["Neck"]=Vector3(-0.05,0,0)
+		"look_down":
+			result["Head"]=Vector3(0.30,0,0);result["Neck"]=Vector3(0.05,0,0)
+		"fingers":
+			_arm(result,"Left",Vector3(-0.24,-0.45,-0.925),-1.75)
+			result["Head"]=Vector3(0.20,0.20,0)
+			result["LeftHand"]=Vector3(0.05,0.08,0.12)
+			var curl: float=0.20+0.15*sin(gesture_time*3.0)
+			result["LeftIndexProximal"]=Vector3(0,0,-curl)
+			result["LeftIndexIntermediate"]=Vector3(0,0,-curl*0.6)
+			result["LeftMiddleProximal"]=Vector3(0,0,-0.35)
+		"hands":
+			_arm(result,"Left",Vector3(0.21,-0.635,-0.78),-1.315)
+			_arm(result,"Right",Vector3(0.21,0.635,0.78),1.315)
+			result["Head"]=Vector3(0.24,0,0)
+			result["LeftHand"]=Vector3(0.08,sin(gesture_time*1.6)*0.20,0.12)
+			result["RightHand"]=Vector3(0.08,-sin(gesture_time*1.6)*0.20,-0.12)
+		"back_stretch":
+			result["Spine"]=Vector3(-0.14,0,0);result["Chest"]=Vector3(-0.10,0,0)
+			result["Head"]=Vector3(-0.12,0,0)
+			result["LeftShoulder"]=Vector3(0,0,0.06);result["RightShoulder"]=Vector3(0,0,-0.06)
+		"curious":
+			result["Head"]=Vector3(-0.03,0.04,gesture_side*0.21)
+		"fold_arms":
+			_arm(result,"Left",Vector3(0.825,-0.78,-0.90),-1.53)
+			_arm(result,"Right",Vector3(0.705,0.67,1.25),1.065)
+			result["LeftHand"]=Vector3(0,0.12,0.08);result["RightHand"]=Vector3(0,-0.15,-0.08)
+			result["LeftIndexProximal"]=Vector3(0,0,-0.25);result["RightIndexProximal"]=Vector3(0,0,0.25)
+			result["LeftMiddleProximal"]=Vector3(0,0,-0.35);result["RightMiddleProximal"]=Vector3(0,0,0.35)
+		"hand_face":
+			_arm(result,"Left",Vector3(-0.56,-0.45,-0.535),-2.20)
+			result["Head"]=Vector3(0.02,0.02,-0.05)
+			result["LeftHand"]=Vector3(0.12,0.08,0.15)
+		"weight_shift":
+			var shift: float=sin(gesture_time/duration*TAU)
+			result["Spine"]=Vector3(0,0,shift*0.06);result["Chest"]=Vector3(0,0,-shift*0.025)
+			result["LeftUpperLeg"]=Vector3(0,0,-shift*0.027);result["RightUpperLeg"]=Vector3(0,0,-shift*0.027)
+			result["LeftFoot"]=Vector3(0,0,shift*0.027);result["RightFoot"]=Vector3(0,0,shift*0.027)
+			hips_offset.x+=shift*0.022*fade
+		"brush_hair":
+			_arm(result,"Right",Vector3(-1.125,0.45+sin(gesture_time*2.0)*0.07,0.115),2.10)
+			result["Head"]=Vector3(0,0.03,0.055)
+			result["RightHand"]=Vector3(-0.18,-0.08,sin(gesture_time*2.0)*0.16)
+		"playful":
+			_arm(result,"Left",Vector3(-0.285,-0.40,-0.775),-1.30)
+			_arm(result,"Right",Vector3(-0.285,0.40,0.775),1.30)
+			result["LeftHand"]=Vector3(0,sin(gesture_time*5)*0.18,0.15)
+			result["RightHand"]=Vector3(0,-sin(gesture_time*5)*0.18,-0.15)
+			result["Head"]=Vector3(0,0,sin(gesture_time*2.0)*0.06)
+
 	for bone: String in result:
 		result[bone] = Vector3(result[bone]) * fade
 	return result
@@ -229,11 +312,26 @@ func _limit_poses() -> void:
 			if bone == "Head":
 				limit = Vector3(0.35, 0.38, 0.26)
 			elif bone.ends_with("UpperArm"):
-				limit = Vector3(1.25, 0.20, 1.48)
+				limit = Vector3(1.25, 1.0, 1.48)
 			elif bone.ends_with("LowerArm"):
-				limit = Vector3(0.12, 1.95, 0.12)
+				limit = Vector3(0.12, 2.2, 0.12)
+			elif "Proximal" in bone or "Intermediate" in bone:
+				limit = Vector3(0.3,0.3,0.6)
 			elif bone.ends_with("Hand"):
 				limit = Vector3(0.28, 0.28, 0.28)
 			_limits[bone] = limit
 		var bound: Vector3 = _limits[bone]
 		poses[bone] = Vector3(poses[bone]).clamp(-bound, bound)
+
+func _arm(result: Dictionary, side: String, upper: Vector3, lower_y: float) -> void:
+	var bones: Array=ARM_BONES[side]
+	var mirror: float=1.0 if side=="Left" else -1.0
+	result[bones[0]]=upper-Vector3(0,0,-1.22*mirror)
+	result[bones[1]]=Vector3(0,lower_y+0.16*mirror,0)
+
+func configure_scheduler(low: float, high: float, on: bool, weights_value: Dictionary) -> void:
+	low=clampf(low,5.0,120.0);high=clampf(maxf(low,high),5.0,180.0)
+	if not _scheduler_configured or low!=interval_min or high!=interval_max:
+		gesture_wait=rng.randf_range(low,high)
+	if scheduler_enabled and not on and mode==IDLE:cancelling=true
+	interval_min=low;interval_max=high;scheduler_enabled=on;action_weights=weights_value;_scheduler_configured=true

@@ -1,5 +1,6 @@
 /* Only tab OUTPUT. Raw samples remain in this document and are never stored/sent. */
 let stream, context, timer;
+let selectedTabId;
 async function stop() {
   clearInterval(timer);
   stream?.getTracks().forEach(track => track.stop());
@@ -7,7 +8,8 @@ async function stop() {
   if (context) await context.close();
   context = null;
 }
-async function capture(streamId) {
+async function capture(streamId, tabId) {
+  selectedTabId = tabId;
   await stop();
   stream = await navigator.mediaDevices.getUserMedia({audio: {mandatory: {
     chromeMediaSource: 'tab', chromeMediaSourceId: streamId
@@ -35,18 +37,18 @@ async function capture(streamId) {
       analyser.getFloatTimeDomainData(samples);
       let sum = 0;
       for (const sample of samples) sum += sample * sample;
-      await chrome.runtime.sendMessage({type: 'audio', rms: Math.sqrt(sum / samples.length), capturing: stream?.active === true});
+      await chrome.runtime.sendMessage({type: 'audio', tabId: selectedTabId, rms: Math.sqrt(sum / samples.length), capturing: stream?.active === true});
     } catch { /* Godot/bridge can restart; the freshness timeout closes the mouth. */ }
     finally { sending = false; }
   }, 100);
   stream.getAudioTracks()[0].addEventListener('ended', async () => {
-    await chrome.runtime.sendMessage({type: 'audio', rms: 0, capturing: false}).catch(() => {});
+    await chrome.runtime.sendMessage({type: 'audio', tabId: selectedTabId, rms: 0, capturing: false, diagnostic: 'capture_ended'}).catch(() => {});
     await stop();
   });
 }
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message.destination !== 'offscreen') return false;
-  const operation = message.type === 'capture' ? capture(message.streamId) : stop();
-  operation.then(() => respond({ok: true})).catch(async () => { await stop(); respond({ok: false}); });
+  const operation = message.type === 'capture' ? capture(message.streamId, message.tabId) : stop();
+  operation.then(() => respond({ok: true})).catch(async error => { await stop(); respond({ok: false, diagnostic: error?.name === 'NotAllowedError' ? 'capture_denied' : 'capture_failed'}); });
   return true;
 });

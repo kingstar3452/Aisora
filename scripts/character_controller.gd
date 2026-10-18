@@ -176,6 +176,8 @@ func _world_pose(bone_name: String, offset: Vector3) -> void:
 	var index: int = int(bone_indices.get(bone_name, -1))
 	if index < 0:
 		return
+	if offset == Vector3.ZERO and Quaternion(_last_rotations[index]).is_equal_approx(rest_rotations[index]):
+		return
 	# Cached rest-axis quaternions avoid per-bone matrix inversion/conversion every frame.
 	var world_rotation: Quaternion = Quaternion(Vector3.BACK, offset.z) * Quaternion(Vector3.RIGHT, offset.x) * Quaternion(Vector3.UP, offset.y)
 	var local_delta: Quaternion = parent_inverse_quaternions[index] * world_rotation * parent_quaternions[index]

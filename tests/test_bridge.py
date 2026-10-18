@@ -79,6 +79,37 @@ class StateTests(unittest.TestCase):
             self.assertTrue((path.parent / '.gdignore').exists())
             self.assertEqual(json.loads(path.read_text())['port'], 8766)
 
+    def test_busy_browser_retains_an_undispatched_command(self):
+        self.state.poll({'voice': 'inactive'})
+        token = self.state.command('start')
+        self.assertIsNone(self.state.poll({'voice': 'inactive', 'busy': True}))
+        self.assertEqual(self.state.poll({'voice': 'inactive', 'busy': False})['id'], token)
+        self.assertIsNone(self.state.poll({'voice': 'inactive'}))
+
+    def test_thinking_is_explicit_fresh_and_only_for_active_voice(self):
+        self.state.poll({'voice': 'active', 'activity': 'thinking'})
+        self.assertEqual(self.state.snapshot()['activity'], 'thinking')
+        self.state.poll({'voice': 'active'})
+        self.assertEqual(self.state.snapshot()['activity'], 'unknown')
+        self.state.poll({'voice': 'inactive', 'activity': 'thinking'})
+        self.assertEqual(self.state.snapshot()['activity'], 'unknown')
+        self.state.poll({'voice': 'active', 'activity': 'thinking'})
+        self.now += 4.1
+        self.assertEqual(self.state.snapshot()['activity'], 'unknown')
+
+    def test_permission_and_capture_failures_do_not_end_or_invent_voice(self):
+        self.state.poll({'voice': 'active', 'diagnostic': 'permission'})
+        self.assertIn('Microphone permission', self.state.snapshot()['error'])
+        self.state.audio({'capturing': False, 'rms': 0, 'diagnostic': 'capture_denied'})
+        self.state.poll({'voice': 'active'})
+        self.assertEqual(self.state.snapshot()['voice'], 'active')
+        self.assertIn('permission was denied', self.state.snapshot()['error'])
+        self.assertEqual(self.state.snapshot()['rms'], 0)
+        self.state.audio({'capturing': True, 'rms': .1})
+        self.assertEqual(self.state.snapshot()['error'], '')
+        with self.assertRaises(ValueError):
+            self.state.audio({'capturing': False, 'rms': 0, 'diagnostic': 'private free text'})
+
 
 class HTTPTests(unittest.TestCase):
     @classmethod

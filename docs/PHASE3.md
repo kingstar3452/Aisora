@@ -1,5 +1,7 @@
 # Phase 3: softer sakura scenery and less render work
 
+Historical Phase 3 notes. [Phase 4](PHASE4.md) adds the current hybrid mode and keeps this 3D park as an optional fallback.
+
 Update your existing `dev/aisora-companion` checkout and reopen `project.godot` in **Godot 4.6.3, Compatibility**. Allow the new SVG textures/shaders to import, then Run Project (F5). No new runtime packages, paid services, extension reinstall or bridge configuration are required. Existing camera, audio, shortcut, intensity and particle preferences are retained.
 
 ```sh

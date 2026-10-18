@@ -4,6 +4,7 @@ extends Node3D
 const Geometry = preload("res://scripts/park_geometry.gd")
 const MAX_PETALS: int = 56
 const TREE_LOCATIONS: Array[Vector3] = [Vector3(-2.5,0,-3.0),Vector3(2.3,0,-3.8),Vector3(-3.7,0,-6.8),Vector3(3.9,0,-7.8),Vector3(-1.3,0,-10),Vector3(2.6,0,-11.8),Vector3(-5,0,-15),Vector3(5,0,-16)]
+var build_on_ready: bool = true
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var petal_density: float = 0.45
 var quality: int = 0
@@ -27,6 +28,11 @@ var _time_origin: float = 0.0
 var _paint: StandardMaterial3D
 
 func _ready() -> void:
+	set_process(false)
+	if build_on_ready:ensure_built()
+
+func ensure_built() -> void:
+	if petals!=null:return
 	rng.seed = 31018
 	_paint = StandardMaterial3D.new()
 	_paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -38,6 +44,7 @@ func _ready() -> void:
 	_build_props()
 	_build_grass()
 	_build_petals()
+	if suspended:_update_pause()
 	apply_performance()
 	set_process(false)
 
