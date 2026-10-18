@@ -78,7 +78,7 @@ func run() -> void:
   match action:
    "fingers":check(left.y>1.2 and left.z>.15 and c.skeleton.get_bone_pose_rotation(c.bone_indices.LeftIndexProximal).angle_to(c.rest_rotations[c.bone_indices.LeftIndexProximal])>.1,"Finger inspection raises the hand and articulates the actual index joint")
    "hands":check(left.y>1.14 and right.y>1.14 and left.z>.20 and right.z>.20 and left.distance_to(right)>.1,"Both hands are separate and forward of the torso")
-   "fold_arms":check(left.x<0 and right.x>0 and absf(left.y-right.y)>.02 and left.z>.10 and right.z>.10,"Folded wrists cross the body at staggered heights outside the torso")
+   "fold_arms":check(at(c,"LeftIndexDistal").x<0 and at(c,"RightIndexDistal").x>0 and absf(left.y-right.y)>.035 and left.z>.20 and right.z>.19,"Loose folded hands cross at the fingers, with staggered forearms safely forward of the torso")
    "hand_face":check(left.distance_to(at(c,"Head"))<.28 and left.x>.08,"Hand rests near the face without targeting the center of the head")
    "brush_hair":check(right.y>at(c,"Head").y+.02 and absf(right.x)>.08,"Hair brushing reaches the temple/crown outside the face center")
    "stretch":check(left.y>1.35 and right.y>1.35 and left.distance_to(right)>.65,"Both arms stretch visibly upward and outward")

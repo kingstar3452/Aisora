@@ -1,6 +1,38 @@
 # Implementation and validation record
 
-## Phase 4: current validation
+## Phase 5: current validation
+
+Godot **4.6.3 official, Compatibility**, Linux cloud, 18 October 2026. The final core runner passes **389 checks/tests**: 13 Python, 20 JavaScript, 35 original model/state, 58 retained Phase 2, 38 retained Phase 3, 117 retained Phase 4, **93 Phase 5** and 15 live Godot/HTTP integration checks. A clean staged-source archive independently imports from scratch and passes the full runner. The VRM SHA-256 remains `46f3ec42b2dca1558b936f37dc0927af906e294f278cf756c0c329a1d23dab68`. Bridge/extension source is unchanged in this phase.
+
+The Phase 5 suite tests exact local-time boundaries/manual overrides, ordered custom schedules, real supplied-image decoding/size budgets, old-sunset preservation, unique persistent local imports, missing-image/light retention, eased two-texture fades, worker replacement on assignment changes, rain priority/clear restoration, layer caps/off/pause, clean UI, text-input shortcut isolation, optional ambience load/duck, actual-rig cached FK, all 15 gestures at maximum intensity, queued gesture blends, calibrated steps/returns/contacts/bounds, Voice hold/resume, per-image calibration/control restoration, nighttime Voice priority, optional adaptive resolution and restart migration.
+
+Separate real software OpenGL checks pass **26 Phase 5 + 15 retained Phase 4 + 5 retained Phase 3** checks. These verify all five actual pictures and character light, actual alpha crossfades, preserved aspect, a shared-world transparent reduced-resolution character render without duplication, native UI/background, original model silhouette and placement, Low/Balanced/High transparency, rain motion/pause, mist, clean/settings layout, minimized 3D suppression and the optional 3D fallback. See [sunset](images/phase5-sunset.png) and [night](images/phase5-night.png) composition previews.
+
+All 15 actual-VRM standing poses were inspected [front](images/phase5-actions-front.png) and from [both](images/phase5-actions-side.png) [sides](images/phase5-actions-other-side.png); sampled peaks had zero approximate proxy hits/held candidates. All five short movement sequences were sampled at six times from three angles on a developer-only flat ground; they returned home, with maximum measured planted-foot error about **3.2 mm** in that visual run. The automated contact tolerance is 15 mm. [Pacing samples](images/phase5-ground-pace.png). These samples do not certify arbitrary combined poses, cloth collision or unrestricted walking. Seat/floor transitions remain unimplemented.
+
+A macOS-target PCK exports successfully. From an empty project directory, an isolated Godot player decodes all five images from that pack and instantiates its main scene, original skeleton and background. This verifies resource packaging, **not a macOS binary**, signing or target-device operation. The supplied backgrounds are raw Keep File resources with an explicit export inclusion filter.
+
+The simulated Chromium test passes two Voice start/end cycles, unchanged conversation, no dictation, explicit Thinking/permission markers, ambiguity refusal and navigation disconnect. Real loopback HTTP integration retains fresh mouth/state handling at a 5 FPS cap, repair after 401 and duplicate-start protection; browser/audio sources remain simulated. No native authenticated ChatGPT Voice success is claimed.
+
+[PERFORMANCE_PHASE5.md](PERFORMANCE_PHASE5.md) contains uncapped comparisons with Phase 4 and raw records: native median means improve only about 2% within overlapping ranges, primitives drop 40%, script cost increases, and reduced resolution has mixed results including a severe outlier. No general speedup or sustained 30 FPS claim is made. [PHASE5.md](PHASE5.md) documents installation, settings, calibration and local acceptance. Native Voice, physical capture/playback/permissions, audible ambience, macOS file dialogs/focus/hotkeys, a Mac binary export and sustained target-iMac performance/thermals remain untested.
+
+```sh
+./tools/check.sh
+# Display required; Xvfb/Mesa suffices for functional rendering:
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase5.gd
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase4.gd
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase3.gd
+python3 tests/browser_smoke.py --chromium /usr/bin/chromium
+# Resource packaging (Mac/Linux; godot must be on PATH):
+./tools/run_godot.sh --headless --editor --export-pack macOS /tmp/aisora-test.pck
+mkdir -p /tmp/aisora-pack-only
+godot --headless --path /tmp/aisora-pack-only --main-pack /tmp/aisora-test.pck --script "$PWD/tests/check_export_pack.gd"
+# Actual-rig visual audits; output stays in ignored .local/:
+./tools/run_godot.sh --audio-driver Dummy --script res://tools/capture_phase5.gd
+./tools/run_godot.sh --audio-driver Dummy --script res://tools/capture_ground.gd
+```
+
+## Phase 4: historical validation
 
 Godot **4.6.3 official, Compatibility**, Linux cloud, 18 October 2026 UTC. The core runner passes **296 checks/tests**: 13 Python, 20 JavaScript, 35 actual-model/state, 58 retained Phase 2, 38 retained Phase 3, **117 Phase 4** and **15 real Godot/HTTP integration** checks. Import and script-error checks pass. A clean staged-source archive independently imports from scratch and passes the entire 296-check core runner. The original VRM SHA-256 remains `46f3ec42b2dca1558b936f37dc0927af906e294f278cf756c0c329a1d23dab68`.
 

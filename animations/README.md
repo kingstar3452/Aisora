@@ -5,7 +5,7 @@
 | Layer | Ownership / behavior |
 | --- | --- |
 | Breathing | Small spine/chest motion and pelvis lift; varied breath period, slower during sleep |
-| Posture | State poses, gentle sway and weight changes; no stepping, with only millimeters of hip shift (no foot IK) |
+| Posture | State poses, gentle sway and weight changes; optional calibrated stepping has a separate hip/knee/ankle IK owner |
 | Gaze | Random look targets, smoothed head/neck turns; listening gaze stays close to the camera |
 | Speech | Head nods/tilts and upper-body emphasis weighted by real output amplitude |
 | Gesture | Occasional wave, stretch, inspection, posture adjustment, explanation or nod; eased entry/exit and randomized cooldowns |
@@ -23,3 +23,5 @@ To add a gesture, define its duration and bounded additive pose in `AisoraMotion
 Phase 3 keeps these poses/timings while caching rest-axis quaternions, joint limits and the four owned facial layers. Layer dictionaries are reused; unchanged native values skip uploads. Hair/eye bones update at up to 8 Hz (Low/low-power), 12 Hz (Balanced/High) or 4 Hz (inactive), while primary body/face updates follow every rendered frame. Efficient materials affect shading only; High restores the exact imported materials. See [Phase 3](../docs/PHASE3.md) and [performance measurements](../docs/PERFORMANCE.md).
 
 Phase 4 adds [the standing action catalogue](../scripts/action_catalog.gd), weighted configurable scheduling and a conversation guard. Fifteen of the original 20 requested action types are implemented on the actual skeleton; standing sleep/wake is retained. Walking, seated/floor poses, full turns and rising from a seat/floor remain unavailable rather than being faked with root transforms. Hand targets were checked with forward kinematics; authored joint poses are blended procedurally, without per-frame IK or imported motion dependencies. See the complete numbered matrix, controls and limits in [PHASE4.md](../docs/PHASE4.md). `tools/capture_actions.gd` renders transition/peak/exit frames with original placeholder scenery only.
+
+Phase 5 adds actual-rig forward-kinematics checks, bounded torso/head/skirt proxy protection, a forward approach into a loose arm fold, all-finger soft curls and queued gesture replacement. `ground_motion.gd` owns legs/root only during opt-in calibrated short steps; it uses planted targets and analytic two-bone IK, with breathing/head/face layers retained. Voice lands the current swing before holding. This is not a cloth solver or general walking/seat/floor system. See [Phase 5](../docs/PHASE5.md) for current capabilities, multi-angle visual evidence and calibration limitations; the Phase 4 paragraph above is historical.

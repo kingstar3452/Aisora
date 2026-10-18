@@ -1,5 +1,7 @@
 # Phase 4: illustrated park, 3D Aisora and Voice recovery
 
+Historical Phase 4 milestone. See [Phase 5](PHASE5.md) for the current supplied images, time/weather, corrected poses and optional calibrated steps.
+
 Continue using `dev/aisora-companion` and **Godot 4.6.3 Compatibility**. Update your existing checkout, allow imports to finish and Run Project (F5). No new runtime package, paid API or asset download is needed. The original VRM, textures, skeleton, efficient materials, graphics presets, F3 diagnostics, resizable window and 30/15/10/5 FPS policies remain.
 
 ```sh

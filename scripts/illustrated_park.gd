@@ -1,115 +1,181 @@
 class_name AisoraIllustratedPark
 extends CanvasLayer
-## A canvas background behind native 3D rendering: no duplicate offscreen viewport.
-const MAX_TEXTURE_EDGE: int = 1920
-const MAX_FILE_BYTES: int = 20*1024*1024
+## Imported images behind the native 3D world. At most two background textures during a fade.
+signal scenery_changed
+const Images=preload("res://scripts/local_images.gd")
+const Cycle=preload("res://scripts/world_cycle.gd")
+const Weather=preload("res://scripts/weather_layers.gd")
+const MAX_TEXTURE_EDGE: int=1920
+const MAX_FILE_BYTES: int=20*1024*1024
 var background: TextureRect
+var incoming: TextureRect
 var shadow: TextureRect
 var foreground: CanvasLayer
+var weather: AisoraWeatherLayers
 var petals: MultiMeshInstance2D
-var branches: Array[TextureRect] = []
-var shader_materials: Array[ShaderMaterial] = []
-var enabled: bool = true
-var intensity: float = 0.65
-var density: float = 0.45
-var quality: int = 0
-var low_power: bool = false
-var parallax: bool = false
-var character_anchor: Vector2 = Vector2(0.5,0.94)
-var character_scale: float = 1.0
-var background_path: String = ""
-var image_storage_dir: String = "user://"
-var _texture_quality: int = -1
-var foreground_path: String = ""
-var message: String = "Original bundled illustration. Choose your own background in Settings."
-var suspended: bool = false:
+var branches: Array[TextureRect]=[]
+var shader_materials: Array[ShaderMaterial]=[]
+var enabled: bool=true
+var intensity: float=.65
+var density: float=.45
+var quality: int=0
+var low_power: bool=false
+var parallax: bool=false
+var show_branches: bool=false
+var shadow_opacity: float=.65
+var shadow_softness: float=1.
+var character_anchor: Vector2=Vector2(.5,.94)
+var character_scale: float=1.
+# Legacy path remains the sunset reference; other slots never overwrite its file.
+var background_path: String=""
+var slot_paths: Dictionary={}
+var displayed_slot: String="sunset"
+var requested_slot: String="sunset"
+var displayed_path: String=""
+var image_storage_dir: String="user://"
+var foreground_path: String=""
+var message: String="No local sunset image. Original placeholder is clearly a fallback."
+var suspended: bool=false:
  set(value):
-  if suspended == value:return
-  suspended=value
-  _pause_shaders()
-var _pause_start: float = 0.0
-var _offset: float = 0.0
-var _clock: float = 0.0
+  if suspended==value:return
+  suspended=value;_pause_shaders()
+var _texture_quality: int=-1
+var _pause_start: float=0.
+var _offset: float=0.
+var _clock: float=0.
 var _root: Control
 var ambient_material: ShaderMaterial
+var _worker: Thread
+var _loading_slot: String=""
+var _loading_path: String=""
+var _loading_edge: int=0
+var _queued_slot: String=""
+var _target_slot: String=""
+var _target_path: String=""
+var fade_progress: float=1.
+var fade_duration: float=8.
+var _fade_from: String="sunset"
 
 func _ready() -> void:
- layer=-1
- _offset=Time.get_ticks_msec()/1000.0
+ layer=-1;_offset=Time.get_ticks_msec()/1000.
  _root=Control.new();_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);_root.mouse_filter=Control.MOUSE_FILTER_IGNORE;_root.clip_contents=true;add_child(_root)
- background=TextureRect.new();background.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;background.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED;background.mouse_filter=Control.MOUSE_FILTER_IGNORE;_root.add_child(background)
- background.texture=load("res://assets/illustrated/original_garden.svg")
- ambient_material=_shader("ambient");background.material=ambient_material
- shadow=TextureRect.new();shadow.texture=load("res://assets/illustrated/shadow.svg");shadow.mouse_filter=Control.MOUSE_FILTER_IGNORE;_root.add_child(shadow)
- foreground=CanvasLayer.new();foreground.layer=0;add_child(foreground)
+ background=_picture();background.texture=load("res://assets/illustrated/original_garden.svg");ambient_material=_shader("ambient");background.material=ambient_material;_root.add_child(background)
+ incoming=_picture();incoming.material=ambient_material;incoming.visible=false;_root.add_child(incoming)
+ weather=Weather.new();_root.add_child(weather)
+ shadow=TextureRect.new();shadow.texture=load("res://assets/illustrated/shadow.svg");shadow.mouse_filter=Control.MOUSE_FILTER_IGNORE;shadow.material=ShaderMaterial.new();shadow.material.shader=load("res://assets/illustrated/contact_shadow.gdshader");_root.add_child(shadow)
+ foreground=CanvasLayer.new();foreground.layer=1;add_child(foreground)
  for i in 2:
-  var branch: TextureRect=TextureRect.new();branch.texture=load("res://assets/illustrated/branch.svg");branch.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;branch.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;branch.size=Vector2(340,212);branch.flip_h=i==1;branch.mouse_filter=Control.MOUSE_FILTER_IGNORE;branch.material=_shader("breeze");foreground.add_child(branch);branches.append(branch)
+  var branch: TextureRect=_picture();branch.texture=load("res://assets/illustrated/branch.svg");branch.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;branch.size=Vector2(340,212);branch.flip_h=i==1;branch.material=_shader("breeze");foreground.add_child(branch);branches.append(branch)
  petals=MultiMeshInstance2D.new();petals.multimesh=MultiMesh.new();petals.multimesh.transform_format=MultiMesh.TRANSFORM_2D;petals.multimesh.use_custom_data=true
  var quad: QuadMesh=QuadMesh.new();quad.size=Vector2(10,15);petals.multimesh.mesh=quad;petals.multimesh.instance_count=40
  var rng: RandomNumberGenerator=RandomNumberGenerator.new();rng.seed=4618
  for i in 40:
   petals.multimesh.set_instance_transform_2d(i,Transform2D.IDENTITY);petals.multimesh.set_instance_custom_data(i,Color(rng.randf(),rng.randf(),0,1))
- petals.multimesh.custom_aabb=AABB(Vector3(-4096,-4096,-1),Vector3(8192,8192,2))
- petals.texture=load("res://assets/illustrated/petal.svg");petals.material=_shader("petals_2d");foreground.add_child(petals)
+ petals.multimesh.custom_aabb=AABB(Vector3(-4096,-4096,-1),Vector3(8192,8192,2));petals.texture=load("res://assets/illustrated/petal.svg");petals.material=_shader("petals_2d");foreground.add_child(petals)
  get_viewport().size_changed.connect(resize)
- if not background_path.is_empty():load_local(background_path,false,false)
+ # Reference migration only: never re-encode, move, truncate or delete the old image.
+ if str(slot_paths.get("sunset","")).is_empty() and not background_path.is_empty():slot_paths.sunset=background_path
+ background_path=str(slot_paths.get("sunset",background_path))
+ var initial: String=displayed_slot if not str(slot_paths.get(displayed_slot,"")).is_empty() else "sunset"
+ var found: bool=_show_saved(initial)
+ if not found and initial!="sunset":found=_show_saved("sunset")
+ if not found:
+  for slot: String in Cycle.IMAGE_SLOTS:
+   if _show_saved(slot):found=true;message="Saved scene missing · displaying available %s image."%slot;break
+ if not found:displayed_slot="sunset";displayed_path="";message="Saved images unavailable · original placeholder fallback only. Assign your images in Settings."
  if not foreground_path.is_empty():load_local(foreground_path,true,false)
  resize();apply_performance()
 
-func _shader(name_value: String) -> ShaderMaterial:
- var material: ShaderMaterial=ShaderMaterial.new();material.shader=load("res://assets/illustrated/%s.gdshader"%name_value);material.set_shader_parameter("time_offset",_offset);shader_materials.append(material);return material
+func _picture() -> TextureRect:
+ var value: TextureRect=TextureRect.new();value.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;value.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED;value.mouse_filter=Control.MOUSE_FILTER_IGNORE;return value
 
-func load_local(path: String, overlay: bool=false, copy_to_user: bool=true) -> bool:
- var file: FileAccess=FileAccess.open(path,FileAccess.READ)
- if file==null or file.get_length()>MAX_FILE_BYTES:
-  message="Image unavailable or larger than 20 MiB. Existing scenery retained.";return false
- var header: PackedByteArray=file.get_buffer(file.get_length())
- file.close()
- var kind: String=path.get_extension().to_lower()
- var signature_ok: bool=(kind=="png" and header.size()>=24 and header.slice(0,8)==PackedByteArray([137,80,78,71,13,10,26,10])) or (kind in ["jpg","jpeg"] and header.size()>=3 and header[0]==255 and header[1]==216 and header[2]==255) or (kind=="webp" and header.size()>=12 and header.slice(0,4).get_string_from_ascii()=="RIFF" and header.slice(8,12).get_string_from_ascii()=="WEBP")
- if not signature_ok:message="The selected file is not a supported image. Existing scenery retained.";return false
- if not path.get_extension().to_lower() in ["png","jpg","jpeg","webp"]:
-  message="Choose a PNG, JPEG or WebP image.";return false
- var dimensions: Vector2i=_dimensions(header,kind)
- if dimensions.x<=0 or dimensions.y<=0 or dimensions.x>8192 or dimensions.y>8192 or dimensions.x*dimensions.y>16000000:
-  message="Use a PNG/JPEG/WebP no larger than 16 megapixels (8192 pixels per edge).";return false
- var image_value: Image=Image.new()
- var result: Error=ERR_FILE_UNRECOGNIZED
- match kind:
-  "png":result=image_value.load_png_from_buffer(header)
-  "jpg","jpeg":result=image_value.load_jpg_from_buffer(header)
-  "webp":result=image_value.load_webp_from_buffer(header)
- if result!=OK or image_value.is_empty():message="Image could not be decoded. Existing scenery retained.";return false
- if overlay and image_value.detect_alpha()==Image.ALPHA_NONE:
-  message="Foreground images need transparency (PNG or WebP).";return false
- var edge: int=maxi(image_value.get_width(),image_value.get_height())
- if edge>MAX_TEXTURE_EDGE:
-  image_value.resize(maxi(1,roundi(image_value.get_width()*float(MAX_TEXTURE_EDGE)/edge)),maxi(1,roundi(image_value.get_height()*float(MAX_TEXTURE_EDGE)/edge)),Image.INTERPOLATE_LANCZOS)
+func _shader(name_value: String) -> ShaderMaterial:
+ var value: ShaderMaterial=ShaderMaterial.new();value.shader=load("res://assets/illustrated/%s.gdshader"%name_value);value.set_shader_parameter("time_offset",_offset);shader_materials.append(value);return value
+
+func texture_edge() -> int:return 1280 if low_power else [1280,1600,1920][clampi(quality,0,2)]
+
+func _show_saved(slot: String) -> bool:
+ var path: String=str(slot_paths.get(slot,""))
+ if path.is_empty():return false
+ var decoded: Dictionary=Images.decode(path,texture_edge())
+ if decoded.has("error"):message=decoded.error;return false
+ background.texture=ImageTexture.create_from_image(decoded.image);displayed_slot=slot;displayed_path=path;_fade_from=slot;_texture_quality=0 if low_power else quality
+ message="Displaying local %s image."%slot;return true
+
+func assign_time_image(slot: String,path: String,copy_to_user: bool=true) -> bool:
+ if slot not in Cycle.IMAGE_SLOTS:return false
+ var decoded: Dictionary=Images.decode(path)
+ if decoded.has("error"):message=decoded.error;return false
+ var image_value: Image=decoded.image
  var destination: String=path
  if copy_to_user:
   DirAccess.make_dir_recursive_absolute(image_storage_dir)
-  destination=image_storage_dir.path_join("aisora-foreground.png" if overlay else "aisora-background.png")
-  if image_value.save_png(destination)!=OK:message="Unable to save your local image.";return false
- var texture_edge: int=512 if overlay else ([1280,1600,1920][clampi(quality,0,2)] if not low_power else 1280)
- if maxi(image_value.get_width(),image_value.get_height())>texture_edge:
-  var ratio: float=float(texture_edge)/maxi(image_value.get_width(),image_value.get_height())
-  image_value.resize(maxi(1,roundi(image_value.get_width()*ratio)),maxi(1,roundi(image_value.get_height()*ratio)),Image.INTERPOLATE_LANCZOS)
- _texture_quality=0 if low_power else quality
- if overlay:
-  foreground_path=destination;branches[0].texture=ImageTexture.create_from_image(image_value);branches[1].visible=false
+  # Unique files preserve the existing sunset and all prior user imports for rollback.
+  destination=image_storage_dir.path_join("aisora-%s-%d-%d.png"%[slot,Time.get_unix_time_from_system(),Time.get_ticks_usec()])
+  if image_value.save_png(destination)!=OK:message="Unable to save the local image. Existing assignment retained.";return false
+ slot_paths[slot]=destination
+ if slot=="sunset":background_path=destination
+ message="%s assigned locally. Existing images were not overwritten."%slot.capitalize();scenery_changed.emit();return true
+
+func load_local(path: String,overlay: bool=false,copy_to_user: bool=true) -> bool:
+ # Retain the original API: a plain park import explicitly assigns/displays sunset.
+ if not overlay:
+  if not assign_time_image("sunset",path,copy_to_user):return false
+  _finish_worker();_queued_slot="";_target_slot="";fade_progress=1.;incoming.visible=false;incoming.texture=null
+  requested_slot="sunset";_show_saved("sunset");resize();_update_processing();return true
+ var decoded: Dictionary=Images.decode(path)
+ if decoded.has("error"):message=decoded.error;return false
+ var image_value: Image=decoded.image
+ if image_value.detect_alpha()==Image.ALPHA_NONE:message="Foreground images need transparency (PNG or WebP).";return false
+ var destination: String=path
+ if copy_to_user:
+  destination=image_storage_dir.path_join("aisora-foreground-%d.png"%Time.get_ticks_usec())
+  if image_value.save_png(destination)!=OK:message="Unable to save your local foreground.";return false
+ Images.fit(image_value,512);foreground_path=destination;show_branches=true;branches[0].texture=ImageTexture.create_from_image(image_value);branches[1].visible=false
+ message="Separate transparent foreground loaded locally.";apply_performance();scenery_changed.emit();return true
+
+func select_slot(slot: String,seconds: float=8.,asynchronous: bool=true) -> bool:
+ if slot not in Cycle.IMAGE_SLOTS:return false
+ requested_slot=slot;fade_duration=clampf(seconds,.2,30.)
+ var path: String=str(slot_paths.get(slot,""))
+ if path.is_empty() or not FileAccess.file_exists(path):
+  _queued_slot="";message="%s image missing · keeping the existing %s image and its lighting."%[slot.capitalize(),displayed_slot];return false
+ if slot==displayed_slot and path==displayed_path and fade_progress>=1.:
+  message="Displaying local %s image."%slot;return true
+ if _worker!=null or fade_progress<1.:
+  _queued_slot=slot;return true
+ if asynchronous:
+  _loading_slot=slot;_loading_path=path;_loading_edge=texture_edge();_worker=Thread.new();_worker.start(Images.decode.bind(path,_loading_edge));message="Loading %s locally; the existing image remains visible…"%slot;_update_processing()
  else:
-  background_path=destination;background.texture=ImageTexture.create_from_image(image_value)
- message="Local image loaded. Image files stay outside the repository."
- resize();return true
+  var decoded: Dictionary=Images.decode(path,texture_edge())
+  if decoded.has("error"):message=decoded.error;return false
+  _begin_fade(slot,path,decoded.image)
+ return true
+
+func _begin_fade(slot: String,path: String,image_value: Image) -> void:
+ incoming.texture=ImageTexture.create_from_image(image_value);incoming.modulate=Color(1,1,1,0);incoming.visible=true
+ _target_slot=slot;_target_path=path;_fade_from=displayed_slot;fade_progress=0.;message="Crossfading to %s…"%slot;_update_processing()
+
+func _finish_worker() -> void:
+ if _worker!=null:_worker.wait_to_finish();_worker=null;_loading_slot=""
+
+func _exit_tree() -> void:_finish_worker()
+
+func lighting_profile() -> Dictionary:
+ var a: Dictionary=Cycle.profile(_fade_from if fade_progress<1. else displayed_slot)
+ if fade_progress>=1.:return a
+ var b: Dictionary=Cycle.profile(_target_slot)
+ var weight: float=smoothstep(0.,1.,fade_progress)
+ return {"color":Color(a.color).lerp(b.color,weight),"energy":lerpf(a.energy,b.energy,weight),"ambient":lerpf(a.ambient,b.ambient,weight)}
 
 func resize() -> void:
  if background==null:return
  var extent: Vector2=get_viewport().get_visible_rect().size
- var margin: float=12.0 if parallax else 0.0
- background.position=Vector2(-margin,-margin);background.size=extent+Vector2.ONE*margin*2.0
+ var margin: float=12. if parallax else 0.
+ for picture: TextureRect in [background,incoming]:picture.position=Vector2(-margin,-margin);picture.size=extent+Vector2.ONE*margin*2.
  shadow.size=Vector2(230,48)*character_scale;shadow.position=extent*character_anchor-shadow.size*Vector2(.5,.37)
  branches[0].position=Vector2.ZERO;branches[1].position=Vector2(extent.x-340,0)
- petals.material.set_shader_parameter("viewport_size",extent)
+ petals.material.set_shader_parameter("viewport_size",extent);weather.resize(extent)
 
 func apply_performance() -> void:
  if petals==null:return
@@ -117,52 +183,55 @@ func apply_performance() -> void:
  var effective: int=0 if low_power else quality
  if _texture_quality!=effective:
   _texture_quality=effective
-  if not background_path.is_empty():load_local(background_path,false,false)
- var amount: float=0.0 if intensity<=0.0 else clampf(density,0,1)
+  if not displayed_path.is_empty():
+   var decoded: Dictionary=Images.decode(displayed_path,texture_edge())
+   if decoded.has("image"):background.texture=ImageTexture.create_from_image(decoded.image)
+  if fade_progress<1.:
+   var decoded: Dictionary=Images.decode(_target_path,texture_edge())
+   if decoded.has("image"):incoming.texture=ImageTexture.create_from_image(decoded.image)
+ var amount: float=0. if intensity<=0. else clampf(density,0,1)
  petals.multimesh.visible_instance_count=mini(roundi(40*amount),12 if low_power else [24,32,40][clampi(quality,0,2)])
  for material: ShaderMaterial in shader_materials:material.set_shader_parameter("intensity",intensity)
- for branch: TextureRect in branches:branch.visible=intensity>0.0
+ for branch: TextureRect in branches:branch.visible=show_branches and intensity>0.
  if not foreground_path.is_empty():branches[1].visible=false
- set_process(enabled and parallax and intensity>0.0 and not suspended)
- resize()
+ shadow.material.set_shader_parameter("opacity",shadow_opacity);shadow.material.set_shader_parameter("softness",shadow_softness)
+ weather.quality=quality;weather.low_power=low_power;weather.apply();_update_processing();resize()
+
+func _update_processing() -> void:set_process(_worker!=null or (enabled and not suspended and (fade_progress<1. or (parallax and intensity>0.))))
 
 func _pause_shaders() -> void:
- var now: float=Time.get_ticks_msec()/1000.0
+ var now: float=Time.get_ticks_msec()/1000.
  if suspended:_pause_start=now
  else:_offset+=now-_pause_start
  for material: ShaderMaterial in shader_materials:
-  material.set_shader_parameter("paused_at",now-_offset if suspended else -1.0);material.set_shader_parameter("time_offset",_offset)
- set_process(enabled and parallax and intensity>0.0 and not suspended)
+  material.set_shader_parameter("paused_at",now-_offset if suspended else -1.);material.set_shader_parameter("time_offset",_offset)
+ if weather!=null:weather.pause_at(now-_offset if suspended else -1.,_offset)
+ _update_processing()
 
 func _process(delta: float) -> void:
+ if _worker!=null and not _worker.is_alive():
+  var decoded: Dictionary=_worker.wait_to_finish();_worker=null
+  var slot: String=_loading_slot;_loading_slot=""
+  if decoded.has("error"):message=decoded.error
+  elif requested_slot==slot:
+   if _loading_edge!=texture_edge() or _loading_path!=str(slot_paths.get(slot,"")):select_slot(slot,fade_duration)
+   else:_begin_fade(slot,_loading_path,decoded.image)
+  if _worker==null and fade_progress>=1. and not _queued_slot.is_empty():
+   var queued: String=_queued_slot;_queued_slot="";select_slot(queued,fade_duration)
+  scenery_changed.emit()
+ if suspended or not enabled:_update_processing();return
+ if fade_progress<1.:
+  fade_progress=minf(1.,fade_progress+maxf(0.,delta)/fade_duration);incoming.modulate.a=smoothstep(0.,1.,fade_progress)
+  if fade_progress>=1.:
+   background.texture=incoming.texture;incoming.texture=null;incoming.visible=false;displayed_slot=_target_slot;displayed_path=_target_path;_fade_from=displayed_slot;_target_slot=""
+   message="Displaying local %s image."%displayed_slot;scenery_changed.emit()
+   if not _queued_slot.is_empty():
+    var queued: String=_queued_slot;_queued_slot="";select_slot(queued,fade_duration)
  _clock+=delta
- if _clock<0.1:return
- _clock=0.0
- var t: float=Time.get_ticks_msec()/1000.0-_offset
- background.position=Vector2(-12.0+sin(t*.08)*5.0*intensity,-12.0+sin(t*.06)*3.0*intensity)
+ if parallax and intensity>0. and _clock>=.1:
+  _clock=0.
+  var t: float=Time.get_ticks_msec()/1000.-_offset
+  for picture: TextureRect in [background,incoming]:picture.position=Vector2(-12.+sin(t*.08)*5.*intensity,-12.+sin(t*.06)*3.*intensity)
+ _update_processing()
 
-func _dimensions(data: PackedByteArray, kind: String) -> Vector2i:
- # Read dimensions before allocating a decoded bitmap. No per-frame image work.
- if kind=="png" and data.size()>=24:
-  return Vector2i(_be32(data,16),_be32(data,20))
- if kind=="webp" and data.size()>=30:
-  var chunk: String=data.slice(12,16).get_string_from_ascii()
-  if chunk=="VP8X":return Vector2i(1+data[24]+(data[25]<<8)+(data[26]<<16),1+data[27]+(data[28]<<8)+(data[29]<<16))
-  if chunk=="VP8 ":return Vector2i((data[26]+(data[27]<<8))&16383,(data[28]+(data[29]<<8))&16383)
-  if chunk=="VP8L":return Vector2i(1+data[21]+((data[22]&63)<<8),1+(data[22]>>6)+(data[23]<<2)+((data[24]&15)<<10))
- if kind in ["jpg","jpeg"]:
-  var at: int=2
-  while at+4<data.size():
-   if data[at]!=255:at+=1;continue
-   var marker: int=data[at+1];at+=2
-   if marker==255:at-=1;continue
-   if marker in [216,217,1] or (marker>=208 and marker<=215):continue
-   var length_value: int=(data[at]<<8)+data[at+1]
-   if length_value<2 or at+length_value>data.size():return Vector2i.ZERO
-   if marker in [192,193,194,195,197,198,199,201,202,203,205,206,207] and length_value>=7:
-    return Vector2i((data[at+5]<<8)+data[at+6],(data[at+3]<<8)+data[at+4])
-   at+=length_value
- return Vector2i.ZERO
-
-func _be32(data: PackedByteArray, at: int) -> int:
- return (data[at]<<24)+(data[at+1]<<16)+(data[at+2]<<8)+data[at+3]
+func _dimensions(data: PackedByteArray,kind: String) -> Vector2i:return Images._dimensions(data,kind)

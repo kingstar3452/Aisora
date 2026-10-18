@@ -1,10 +1,15 @@
 class_name AisoraCharacter
 extends Node3D
 ## Layers procedural movement over the actual imported VRM rest pose and facial bindings.
+const GroundMotion=preload("res://scripts/ground_motion.gd")
+const PoseSafety = preload("res://scripts/pose_safety.gd")
 const Motion = preload("res://scripts/motion_layers.gd")
 
 enum State { IDLE, LISTENING, THINKING, TALKING, SLEEPING }
 const STATE_NAMES: Array[String] = ["IDLE", "LISTENING", "THINKING", "TALKING", "SLEEPING"]
+var ground: AisoraGroundMotion=GroundMotion.new()
+var pose_safety: AisoraPoseSafety
+var _safety_tail: float=0.0
 var state: State = State.IDLE
 var model: Node3D
 var skeleton: Skeleton3D
@@ -20,12 +25,19 @@ var parent_rest_axes: Dictionary = {}
 var hair_roots: Array[int] = []
 var parent_quaternions: Dictionary = {}
 var parent_inverse_quaternions: Dictionary = {}
+var _offset_cache: Dictionary={}
+var _rotation_cache: Dictionary={}
 var _last_rotations: Dictionary = {}
 var _last_hips: Vector3 = Vector3.INF
 var _secondary_clock: float = 1.0
 var backgrounded: bool = false
 var visual_quality: int = -1
 var lighting: float = 1.0
+var world_tint: Color=Color.WHITE
+var world_energy: float=1.0
+var appearance_brightness: float=1.0
+var appearance_contrast: float=1.0
+var reduced_detail: bool=true
 var material_slots: Array[Dictionary] = []
 var _fast_materials: Dictionary = {}
 var _face_meshes: Array[MeshInstance3D] = []
@@ -67,6 +79,8 @@ func _ready() -> void:
 				hair_roots.append(i)
 	# Keep the authored baseline; bounded procedural roots replace per-frame springs.
 	_disable_secondary(model)
+	pose_safety=PoseSafety.new(self)
+	ground.setup(self)
 	_cache_face_bindings()
 	for mesh: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
 		for surface in mesh.mesh.get_surface_count():
@@ -122,6 +136,8 @@ func tick(delta: float) -> void:
 	time += delta
 	motion.intensity = animation_intensity
 	var poses: Dictionary = motion.tick(delta, mouth)
+	_safety_tail=0.6 if not motion.gesture.is_empty() else maxf(0.,_safety_tail-delta)
+	pose_safety.constrain(poses,motion.hips_offset,minf(delta,.1),_safety_tail>0.)
 	for bone_name: String in poses:
 		_world_pose(bone_name, poses[bone_name])
 	var hips: int = int(bone_indices.get("Hips", -1))
@@ -166,6 +182,7 @@ func tick(delta: float) -> void:
 	_face_weights[2] = (0.13 + talk * 0.12) * awake
 	_face_weights[3] = thought * 0.10 * awake
 	_update_face()
+	ground.tick(self,delta)
 
 func _local_pose(bone_name: String, offset: Vector3) -> void:
 	var index: int = int(bone_indices.get(bone_name, -1))
@@ -178,10 +195,13 @@ func _world_pose(bone_name: String, offset: Vector3) -> void:
 		return
 	if offset == Vector3.ZERO and Quaternion(_last_rotations[index]).is_equal_approx(rest_rotations[index]):
 		return
+	if _offset_cache.get(index,Vector3.INF)==offset:
+		_write_rotation(index,_rotation_cache[index]);return
 	# Cached rest-axis quaternions avoid per-bone matrix inversion/conversion every frame.
 	var world_rotation: Quaternion = Quaternion(Vector3.BACK, offset.z) * Quaternion(Vector3.RIGHT, offset.x) * Quaternion(Vector3.UP, offset.y)
 	var local_delta: Quaternion = parent_inverse_quaternions[index] * world_rotation * parent_quaternions[index]
-	_write_rotation(index, local_delta * rest_rotations[index])
+	_offset_cache[index]=offset;_rotation_cache[index]=local_delta*rest_rotations[index]
+	_write_rotation(index,_rotation_cache[index])
 
 func _write_rotation(index: int, rotation: Quaternion) -> void:
 	if not rotation.is_equal_approx(_last_rotations[index]):
@@ -222,6 +242,7 @@ func set_visual_quality(preset: int) -> void:
 	if preset == visual_quality:
 		return
 	visual_quality = preset
+	_apply_mesh_detail()
 	for slot: Dictionary in material_slots:
 		var original: ShaderMaterial = slot.original as ShaderMaterial
 		if original == null:
@@ -247,6 +268,7 @@ func set_visual_quality(preset: int) -> void:
 			var base_color: Color = original.get_shader_parameter("_Color")
 			material.set_shader_parameter("_Color",_lit_color(base_color))
 			material.set_shader_parameter("shade_strength", 0.10 if preset == 0 else 0.16)
+			_apply_material_appearance(material)
 			_fast_materials[cache_key] = material
 		slot.mesh.set_surface_override_material(slot.surface, _fast_materials[cache_key])
 
@@ -263,3 +285,23 @@ func set_lighting(value: float) -> void:
 			var key: String = "%d:%d" % [slot.original.get_instance_id(),preset]
 			if _fast_materials.has(key):
 				_fast_materials[key].set_shader_parameter("_Color",_lit_color(slot.original.get_shader_parameter("_Color")))
+
+func _apply_mesh_detail() -> void:
+	for mesh: MeshInstance3D in model.find_children("*","MeshInstance3D",true,false):
+		# Use the importer's existing index LODs; never replace the facial mesh/expressions.
+		mesh.lod_bias=([0.4,0.7,1.0][clampi(visual_quality,0,2)] if reduced_detail and mesh.name!="Face" else 1.0)
+
+func set_detail_reduction(on: bool) -> void:
+	if reduced_detail==on:return
+	reduced_detail=on
+	if model!=null:_apply_mesh_detail()
+
+func set_appearance(tint: Color,energy: float,brightness: float,contrast: float) -> void:
+	if tint.is_equal_approx(world_tint) and is_equal_approx(energy,world_energy) and is_equal_approx(brightness,appearance_brightness) and is_equal_approx(contrast,appearance_contrast):return
+	world_tint=tint;world_energy=energy;appearance_brightness=brightness;appearance_contrast=contrast
+	for material: ShaderMaterial in _fast_materials.values():_apply_material_appearance(material)
+
+func _apply_material_appearance(material: ShaderMaterial) -> void:
+	material.set_shader_parameter("world_tint",Color(world_tint.r,world_tint.g,world_tint.b,1))
+	material.set_shader_parameter("world_energy",world_energy*appearance_brightness)
+	material.set_shader_parameter("appearance_contrast",appearance_contrast)

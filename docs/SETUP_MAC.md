@@ -1,13 +1,13 @@
 # Mac setup
 
-For the current hybrid background, extension 0.2.0 update/re-pairing, action controls and conservative Voice recovery, start with [Phase 4](PHASE4.md). The original setup below remains applicable.
+Start with [Phase 5](PHASE5.md) for supplied backgrounds, local-clock/weather controls, saved sunset alternatives, corrected actions and reduced-resolution settings. Existing working Phase 4 bridge/extension pairing is unchanged; no re-pairing is required for this update. The browser setup below remains applicable.
 
 
 ## 1. Run the character
 
 Use Godot **4.6.3 standard**, Compatibility renderer, on macOS Ventura. Open `project.godot` and wait for the import progress to finish. Click Run Project. The default is a normal resizable window, Low graphics and 30 FPS. Enable Low-power mode for a 15 FPS foreground cap. Move the window onto the Samsung monitor before using F11/full-screen. macOS Spaces and “Displays have separate Spaces” settings affect which display owns a full-screen window.
 
-The first import can take longer than later launches. Aisora should appear over the original placeholder illustration (or your chosen local picture), with breathing, irregular blinks and visible idle movement. Test states with 1–5; return to automatic with 0. Tab opens Performance & presentation: Low/Balanced/High quality, Low-power mode (15 FPS), animation intensity, petal density, foreground FPS and an F3 frame-time overlay. Under Standing actions, choose one of the 15 supported actions and click Preview selected action after ending Voice. Settings remain in Godot's local `user://settings.cfg`; existing camera/audio/shortcut preferences are preserved. See [Phase 4](PHASE4.md) for background loading, scheduler controls, performance limits, local testing and standing rest/wake behavior.
+The first import can take longer than later launches. Aisora should appear over the supplied picture selected by the Mac's local clock (or your chosen local picture), with breathing, irregular blinks and visible idle movement. Test states with 1–5; return to automatic with 0. Tab opens Performance & presentation: Low/Balanced/High quality, Low-power mode (15 FPS), animation intensity, petal density, foreground FPS and an F3 frame-time overlay. Under Standing actions, choose one of the 15 supported actions and click Preview selected action after ending Voice. Settings remain in Godot's local `user://settings.cfg`; existing camera/audio/shortcut preferences are preserved. See [Phase 5](PHASE5.md) for image slots, weather, calibration, render-resolution controls, local testing and standing rest/wake behavior.
 
 ## 2. Start the local bridge
 

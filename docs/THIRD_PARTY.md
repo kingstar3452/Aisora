@@ -21,6 +21,12 @@ The park meshes, layout, sky gradient, blossom/petal shapes and animation code a
 
 `assets/illustrated/` contains original SVG placeholder/branch/petal/shadow artwork made by `tools/bake_2d_assets.py`, plus original lightweight canvas shaders. No pixels from the two user-supplied background pictures are copied or bundled. Their files were not available in the cloud filesystem; they are supported through the local file picker, not fetched from other websites. The chosen background/foreground copies live only in Godot's user data directory. Permission to use a local image does not establish permission to redistribute it; no third-party background rights are asserted.
 
+## Phase 5 supplied images and original ambience
+
+The user explicitly supplied `Aisora_5_High_Quality_Backgrounds (1).zip` for integration into this project. Its five separate morning/afternoon/sunset/night/rain PNGs are included as compressed WebP in `assets/world/`, with source SHA-256, dimensions and quality recorded in `manifest.json`. No website images were downloaded and no replacement imagery was synthesized. This records the user's authorization for this integration; it asserts no independent third-party license or general redistribution grant. Preserve the source owner's rights when distributing the project. The original full-resolution ZIP is not committed. Prior Phase 4 imported pictures remain local alternatives, not newly copied into the repository.
+
+`tools/bake_ambience.py` generates the three original optional synthetic PCM loops in `assets/ambience/` with Python's standard library. They contain no sampled recordings or external audio assets. Phase 5 weather, shadow, pose constraints and stepping code are original project source.
+
 ## Existing character
 
 `assets/character/aisora.vrm` is the unmodified byte-for-byte uploaded `Aisora prototype.vrm` from repository commit `08a3f63210c4f03641ef4d021b2dc56dd17b8834`. Only its path was changed. Its embedded VRM 0.0 metadata states `OnlyAuthor`, `Redistribution_Prohibited`, and disallows commercial use. The importer and project code do not grant additional character rights. Use the existing asset under its owner's permissions; don't treat the importer's MIT license as covering it.

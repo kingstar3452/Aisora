@@ -7,8 +7,60 @@ const Park = preload("res://scripts/sakura_park.gd")
 const PerformancePolicy = preload("res://scripts/performance_policy.gd")
 const ActionCatalog = preload("res://scripts/action_catalog.gd")
 const IllustratedPark = preload("res://scripts/illustrated_park.gd")
+const GroundGuide=preload("res://scripts/ground_guide.gd")
+const AmbientAudio=preload("res://scripts/ambient_audio.gd")
+const ReducedRenderer=preload("res://scripts/character_renderer.gd")
+const AdaptiveQuality=preload("res://scripts/adaptive_quality.gd")
+const WorldCycle = preload("res://scripts/world_cycle.gd")
 const FrameDiagnostics = preload("res://scripts/frame_diagnostics.gd")
 
+var ground_guide: AisoraGroundGuide
+var show_ground_guide: bool=false
+var ambience: AisoraAmbientAudio
+var ambience_level: float=0.
+var ground_auto: bool=false
+var _ground_wait: float=120.
+var _was_stepping: bool=false
+var ground_regions: Dictionary={}
+var ground_status: Label
+var ground_width_slider: HSlider
+var ground_depth_slider: HSlider
+var ground_calibration: CheckButton
+var night_rest: bool=false
+var rest_after: float=180.
+var _idle_duration: float=0.
+var _morning_stretch: bool=false
+var _behavior_period: String=""
+var reduced_renderer: AisoraCharacterRenderer
+var render_scale: float=1.
+var adaptive: AisoraAdaptiveQuality=AdaptiveQuality.new()
+var cycle: AisoraWorldCycle=WorldCycle.new()
+var _world_pending: bool=false
+var _world_clock: float=1.0
+var _lighting_clock: float=0.0
+var _lighting_dirty: bool=true
+var time_status: Label
+var time_override_select: OptionButton
+var slot_status_labels: Dictionary={}
+var legacy_sunset_path: String=""
+var _choose_time_slot: String="sunset"
+var clean_toggle: CheckButton
+var clean_presentation: bool=false
+var settings_button: Button
+var character_brightness: float=1.0
+var character_contrast: float=1.0
+var color_matching: bool=true
+var weather_mode: String="clear"
+var weather_strength: float=.5
+var weather_rain: bool=true
+var weather_clouds: bool=true
+var weather_fog: bool=true
+var night_effects: bool=false
+var shadow_opacity: float=.65
+var shadow_softness: float=1.
+var branches_toggle: CheckButton
+var decorative_branches: bool=false
+var reduced_detail: bool=true
 var character: AisoraCharacter
 var envelope: AisoraAudioEnvelope = Envelope.new()
 var bridge: AisoraBridgeClient
@@ -92,18 +144,29 @@ func _ready() -> void:
 	character_anchor = Vector2(clampf(float(settings.get_value("environment","character_x",0.5)),0.1,0.9),clampf(float(settings.get_value("environment","character_y",0.94)),0.4,0.98))
 	environment_intensity = clampf(float(settings.get_value("environment","intensity",0.65)),0.0,1.0)
 	parallax_enabled = bool(settings.get_value("environment","parallax",false))
+	_load_world_settings()
 	_apply_quality()
 	_build_stage()
 	character = Character.new()
 	add_child(character)
+	reduced_renderer=ReducedRenderer.new();add_child(reduced_renderer);reduced_renderer.setup(camera)
 	_apply_performance_settings()
+	ambience=AmbientAudio.new();add_child(ambience);ambience.level=ambience_level
 	bridge = Bridge.new()
 	bridge.pairing_path=str(settings.get_value("bridge","pairing_path",""))
 	add_child(bridge)
+	var guide_layer: CanvasLayer=CanvasLayer.new();guide_layer.layer=5;add_child(guide_layer)
+	ground_guide=GroundGuide.new();guide_layer.add_child(ground_guide);ground_guide.visible=false
 	_build_ui()
 	_update_camera()
 	_apply_stage_mode()
 	get_viewport().size_changed.connect(_place_character)
+	get_viewport().size_changed.connect(_update_ground_guide)
+	illustrated.scenery_changed.connect(_world_image_changed)
+	_update_world(true)
+	ui_layer.visible=not clean_presentation
+	# Save only references for migration, never rewrite the existing sunset bitmap.
+	if settings.has_section_key("environment","background_path") and not settings.has_section_key("world","slot_paths"):_save()
 
 func _build_stage() -> void:
 	var environment: WorldEnvironment = WorldEnvironment.new()
@@ -145,13 +208,22 @@ func _build_stage() -> void:
 	add_child(park)
 	illustrated = IllustratedPark.new()
 	illustrated.background_path = str(settings.get_value("environment","background_path",""))
+	var saved_paths: Variant=settings.get_value("world","slot_paths",{})
+	illustrated.slot_paths=WorldCycle.BUNDLED.duplicate()
+	if saved_paths is Dictionary:illustrated.slot_paths.merge(saved_paths,true)
+	legacy_sunset_path=str(settings.get_value("world","alternative_sunset",str(settings.get_value("environment","background_path",""))))
+	if not FileAccess.file_exists(str(illustrated.slot_paths.get("sunset",""))) and not legacy_sunset_path.is_empty():illustrated.slot_paths.sunset=legacy_sunset_path
+	illustrated.displayed_slot=str(settings.get_value("world","displayed_slot","sunset"))
 	illustrated.foreground_path = str(settings.get_value("environment","foreground_path",""))
 	add_child(illustrated)
 
 func _update_camera() -> void:
+	if character!=null and character.ground.active:return
 	camera.position = Vector3(0.0, framing + 0.10, zoom)
 	camera.look_at(Vector3(0.0, framing, 0.0))
 	_place_character()
+	if reduced_renderer!=null:reduced_renderer.sync_camera()
+	_update_ground_guide()
 
 func _build_ui() -> void:
 	ui_layer = CanvasLayer.new()
@@ -165,31 +237,10 @@ func _build_ui() -> void:
 	theme.default_font_size = 16
 	theme.set_color("font_color", "Label", Color("d9e4f1"))
 	root.theme = theme
-	var top: MarginContainer = MarginContainer.new()
-	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	top.add_theme_constant_override("margin_left", 32)
-	top.add_theme_constant_override("margin_right", 32)
-	top.add_theme_constant_override("margin_top", 24)
-	root.add_child(top)
-	var row: HBoxContainer = HBoxContainer.new()
-	top.add_child(row)
-	var brand: VBoxContainer = VBoxContainer.new()
-	row.add_child(brand)
-	var title: Label = _label("A I S O R A", 28, Color("234a48"))
-	brand.add_child(title)
-	brand.add_child(_label("A LITTLE MOMENT UNDER THE BLOSSOMS", 11, Color("365c58")))
-	var spacer: Control = Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spacer)
-	var controls: VBoxContainer = VBoxContainer.new()
-	row.add_child(controls)
-	state_label = _label("IDLE", 18, Color("285950"))
-	state_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	controls.add_child(state_label)
-	var settings_button: Button = Button.new()
-	settings_button.text = "Settings  ·  Tab"
-	settings_button.pressed.connect(func(): settings_panel.visible = not settings_panel.visible)
-	controls.add_child(settings_button)
+	settings_button=Button.new();settings_button.text="Settings · Tab"
+	settings_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT);settings_button.position=Vector2(-170,18);settings_button.size=Vector2(150,34)
+	settings_button.pressed.connect(_toggle_settings);root.add_child(settings_button)
+	state_label=_label("IDLE",16)
 	var bottom: MarginContainer = MarginContainer.new()
 	bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	bottom.offset_top = -170
@@ -211,12 +262,14 @@ func _build_ui() -> void:
 	bottom.add_child(footer_panel)
 	var bottom_box: VBoxContainer = VBoxContainer.new()
 	footer_panel.add_child(bottom_box)
-	connection_label = _label("Manual Voice available", 15)
+	bottom_box.add_child(state_label)
+	connection_label = _label("Manual Voice available", 13)
+	connection_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	bottom_box.add_child(connection_label)
 	detail_label = _label("", 13, Color("8aa2bc"))
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	bottom_box.add_child(detail_label)
-	var action_row: HBoxContainer = HBoxContainer.new()
+	var action_row: VBoxContainer = VBoxContainer.new()
 	action_row.add_theme_constant_override("separation", 12)
 	bottom_box.add_child(action_row)
 	voice_button = Button.new()
@@ -241,6 +294,9 @@ func _build_ui() -> void:
 	diagnostics_label.visible = diagnostics_visible
 	root.add_child(diagnostics_label)
 	_build_settings(root)
+	# Technical status lives inside the collapsed settings, never over the normal scene.
+	var settings_box: VBoxContainer=settings_panel.get_child(0).get_child(0)
+	footer_panel.reparent(settings_box);settings_box.move_child(footer_panel,1);bottom.queue_free()
 
 func _label(text: String, size: int, color: Color = Color("d9e4f1")) -> Label:
 	var label: Label = Label.new()
@@ -301,6 +357,7 @@ func _build_settings(root: Control) -> void:
 	diagnostics_toggle.button_pressed = diagnostics_visible
 	diagnostics_toggle.toggled.connect(func(on: bool): diagnostics_visible = on; diagnostics_label.visible = on; _save())
 	box.add_child(diagnostics_toggle)
+	_build_world_settings(box)
 	box.add_child(_label("Standing actions",18))
 	var random_toggle: CheckButton=CheckButton.new();random_toggle.text="Weighted random idle actions";random_toggle.button_pressed=scheduler_enabled
 	random_toggle.toggled.connect(func(on: bool): scheduler_enabled=on; _apply_performance_settings(); _save())
@@ -321,10 +378,11 @@ func _build_settings(root: Control) -> void:
 	action_status=_label("15 standing actions + standing sleep/wake.
 Walking, full turns, sitting, lying and rising from the floor are unavailable.",12,Color("b9c8d9"))
 	action_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(action_status)
+	_build_ground_settings(box)
 	_build_scenery_settings(box,root)
 	_slider(box, "Camera distance", 1.6, 4.0, 0.05, zoom, func(value: float): zoom = value; _update_camera(); _save())
 	_slider(box, "Camera height", 0.7, 1.5, 0.02, framing, func(value: float): framing = value; _update_camera(); _save())
-	_slider(box, "Lighting", 0.25, 2.0, 0.05, light_energy, func(value: float): light_energy = value; light.light_energy = value; character.set_lighting(value); _save())
+	_slider(box, "Lighting", 0.25, 2.0, 0.05, light_energy, func(value: float): light_energy = value; character.set_lighting(value); _lighting_dirty=true; _apply_world_lighting(); _save())
 	box.add_child(_label("Voice connection",18))
 	var pair_button: Button=Button.new();pair_button.text="Choose bridge pairing file…"
 	pair_button.pressed.connect(func():pairing_dialog.popup_centered_ratio(0.7));box.add_child(pair_button)
@@ -368,10 +426,30 @@ func _slider(box: VBoxContainer, title: String, minimum: float, maximum: float, 
 	slider.value = value
 	slider.value_changed.connect(func(next_value: float): caption.text = "%s · %.2f" % [title, next_value])
 	slider.value_changed.connect(changed)
+	slider.set_meta("caption",caption);slider.set_meta("title",title)
 	box.add_child(slider)
 	return slider
 
 func _save() -> void:
+	settings.set_value("world","ambience",ambience_level)
+	settings.set_value("ground","automatic",ground_auto)
+	settings.set_value("ground","regions",ground_regions)
+	settings.set_value("world","night_rest",night_rest);settings.set_value("world","rest_after",rest_after)
+	settings.set_value("world","alternative_sunset",legacy_sunset_path)
+	settings.set_value("world","slot_paths",illustrated.slot_paths)
+	settings.set_value("world","displayed_slot",illustrated.displayed_slot)
+	settings.set_value("world","override",cycle.override_slot)
+	settings.set_value("world","boundaries",cycle.boundaries)
+	settings.set_value("world","fade_seconds",cycle.transition_seconds)
+	settings.set_value("world","weather",weather_mode)
+	settings.set_value("world","weather_strength",weather_strength)
+	settings.set_value("world","rain",weather_rain);settings.set_value("world","clouds",weather_clouds);settings.set_value("world","fog",weather_fog)
+	settings.set_value("world","night_effects",night_effects)
+	settings.set_value("world","brightness",character_brightness);settings.set_value("world","contrast",character_contrast);settings.set_value("world","color_matching",color_matching)
+	settings.set_value("world","shadow_opacity",shadow_opacity);settings.set_value("world","shadow_softness",shadow_softness);settings.set_value("world","branches",decorative_branches)
+	settings.set_value("display","clean",clean_presentation)
+	settings.set_value("performance","reduced_detail",reduced_detail)
+	settings.set_value("performance","render_scale",render_scale);settings.set_value("performance","adaptive",adaptive.enabled)
 	settings.set_value("bridge","pairing_path",bridge.pairing_path)
 	settings.set_value("animation","random_actions",scheduler_enabled)
 	settings.set_value("animation","interval_min",idle_interval_min)
@@ -408,12 +486,17 @@ func _process(delta: float) -> void:
 	if character == null or bridge == null:
 		return
 	elapsed += delta
+	_world_clock+=delta;_lighting_clock+=delta
+	if _world_clock>=1.0:_world_clock=0.;_update_world()
+	if _lighting_clock>=.1:
+		_lighting_clock=0.
+		if _lighting_dirty or illustrated.fade_progress<1.:_apply_world_lighting()
 	diagnostics.record(delta)
 	_diagnostic_clock += delta
 	if diagnostics_visible and _diagnostic_clock >= 0.5:
 		_diagnostic_clock = 0.0
 		var stats: Dictionary = diagnostics.snapshot()
-		diagnostics_label.text = "%.1f FPS · %.1f ms / frame\nP95 %.1f ms · Engine process %.2f ms\n%d draw calls · cap %d · %s" % [stats.fps,stats.mean_ms,stats.p95_ms,Performance.get_monitor(Performance.TIME_PROCESS)*1000.0,Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),Engine.max_fps,["Low","Balanced","High"][quality]]
+		diagnostics_label.text = "%.1f FPS · %.1f ms / frame\nP95 %.1f ms · Engine process %.2f ms\n%d draw calls · cap %d · %s" % [stats.fps,stats.mean_ms,stats.p95_ms,Performance.get_monitor(Performance.TIME_PROCESS)*1000.0,Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),Engine.max_fps,["Low","Balanced","High"][quality]]+"\n3D %s · %d%% · %s"%[str(reduced_renderer.viewport.size) if reduced_renderer.active else "native",roundi(adaptive.effective_scale*100),"adaptive" if adaptive.enabled else "manual"]
 	var voice_active: bool = bridge.state.get("voice", "unknown") == "active"
 	var audio_fresh: bool = bool(bridge.state.get("capturing", false)) and (voice_active or manual_state == Character.State.TALKING)
 	var rms: float = float(bridge.state.get("rms", 0.0))
@@ -421,17 +504,35 @@ func _process(delta: float) -> void:
 		audio_fresh = true
 		rms = (sin(elapsed * 9.0) * 0.5 + 0.5) * 0.15
 	character.mouth = envelope.update(rms, audio_fresh, delta)
-	character.motion.conversation_active=voice_active or bridge.session_may_be_active or bridge.command_pending() or envelope.speaking
+	character.motion.conversation_active=voice_active or bridge.session_may_be_active or bridge.command_pending() or envelope.speaking or manual_state in [1,2,3]
+	ambience.advance(illustrated.displayed_slot,weather_mode,character.motion.conversation_active,delta)
+	character.ground.paused=character.motion.conversation_active
+	if _was_stepping and not character.ground.active:
+		_update_camera();_world_pending=true
+		if ground_status!=null:ground_status.text=character.ground.message
+	_was_stepping=character.ground.active
+	_ground_wait-=delta
+	if ground_auto and _ground_wait<=0. and _idle_duration>60. and manual_state<0 and character.state==Character.State.IDLE and not character.motion.conversation_active and character.motion.gesture.is_empty() and illustrated.displayed_slot in ["morning","daytime"] and illustrated.fade_progress>=1. and illustrated._worker==null:
+		if character.ground.play("pace",character):_ground_wait=character.rng.randf_range(120.,240.)
+	_idle_duration=0. if character.motion.conversation_active or manual_state>=0 else _idle_duration+delta
 	var next: int = manual_state
 	if next < 0:
 		next = Character.State.TALKING if envelope.speaking else ((Character.State.THINKING if bridge.state.get("activity","")=="thinking" else Character.State.LISTENING) if voice_active else Character.State.IDLE)
+	if manual_state<0 and not character.motion.conversation_active and night_rest and illustrated.displayed_slot=="nighttime" and _idle_duration>=rest_after:next=Character.State.SLEEPING
 	character.set_state(next as Character.State)
+	if _morning_stretch and next==Character.State.IDLE and not character.motion.conversation_active and character.motion.sleep_amount<.01 and character.motion.gesture.is_empty() and not character.ground.active:
+		character.play_gesture("stretch");_morning_stretch=false
+	if character.ground.active:
+		illustrated.character_anchor=camera.unproject_position(character.ground.shadow_position())/get_viewport().get_visible_rect().size;illustrated.resize()
 	performance.fps_limit = fps_limit
 	Engine.max_fps = performance.frame_cap(character.motion.is_resting())
 	var hidden: bool = not performance.focused or performance.minimized
 	park.suspended = hidden or stage_mode==0
 	illustrated.suspended = hidden
 	character.backgrounded = hidden
+	if reduced_renderer!=null and reduced_renderer.minimized!=performance.minimized:reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
+	if adaptive.observe(delta,Engine.max_fps,not hidden and not settings_panel.visible and not character.motion.is_resting() and illustrated.fade_progress>=1. and illustrated._worker==null):
+		reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
 	var resting: bool = character.motion.is_resting()
 	if park.resting != resting:
 		park.resting = resting
@@ -442,12 +543,17 @@ func _process(delta: float) -> void:
 	ui_elapsed = 0.0
 	if DisplayServer.get_name() != "headless":
 		performance.minimized = DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_MINIMIZED
+	var message: String=str(bridge.state.get("error",""))
+	settings_button.tooltip_text=message;settings_button.text="Settings · issue" if not message.is_empty() else "Settings · Tab"
+	if not settings_panel.visible:return
 	var activity: String = "minimized" if performance.minimized else ("inactive" if not performance.focused else "foreground")
 	performance_label.text = "%d FPS cap · %s" % [Engine.max_fps, activity]
 	state_label.text = Character.STATE_NAMES[character.state] + ("  ·  TEST" if manual_state >= 0 or demo else "")
 	var connected: bool = bool(bridge.state.get("connected", false))
 	connection_label.text=("Bridge online" if bridge.age<1.5 else "Bridge offline")+(" · Browser connected" if connected else " · Browser disconnected")+" · Voice "+str(bridge.state.get("voice","unknown"))
 	detail_label.text = str(bridge.state.get("error", ""))
+	settings_button.tooltip_text=detail_label.text
+	settings_button.text="Settings · issue" if not detail_label.text.is_empty() else "Settings · Tab"
 	voice_button.text = "Waiting for browser…" if bridge.state.get("pending", false) else "Toggle Voice · " + ("F8" if voice_key == KEY_F8 else "F9")
 	voice_button.disabled = not connected or bridge.command_pending()
 	for button: Button in explicit_voice_buttons:button.disabled=voice_button.disabled
@@ -456,19 +562,21 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
+	var focused: Control=get_viewport().gui_get_focus_owner()
+	if (focused is LineEdit or focused is TextEdit) and event.keycode not in [voice_key,KEY_F3,KEY_F11,KEY_ESCAPE]:return
 	if event.keycode == voice_key:
 		bridge.toggle_voice()
 	elif event.keycode >= KEY_0 and event.keycode <= KEY_5:
 		_select_state(event.keycode - KEY_0)
 	elif event.keycode == KEY_TAB:
-		settings_panel.visible = not settings_panel.visible
+		_toggle_settings()
 	elif event.keycode == KEY_F3:
 		diagnostics_visible = not diagnostics_visible
 		diagnostics_label.visible = diagnostics_visible
 		diagnostics_toggle.set_pressed_no_signal(diagnostics_visible)
 		_save()
 	elif event.keycode == KEY_H:
-		ui_layer.visible = not ui_layer.visible
+		_set_clean(not clean_presentation)
 	elif event.keycode == KEY_F11:
 		_toggle_fullscreen()
 	elif event.keycode == KEY_ESCAPE:
@@ -488,16 +596,26 @@ func _apply_quality() -> void:
 		character.set_lighting(light_energy)
 
 func _apply_performance_settings() -> void:
+	if reduced_renderer!=null:reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
 	if character != null:
+		character.motion.set_context(illustrated.displayed_slot if illustrated!=null else "sunset",weather_mode)
 		character.motion.configure_scheduler(idle_interval_min,idle_interval_max,scheduler_enabled,action_weights)
 		character.animation_intensity = animation_intensity
 		character.low_power = performance.low_power
 		character.set_visual_quality(0 if performance.low_power else quality)
+		character.set_detail_reduction(reduced_detail)
 		character.set_lighting(light_energy)
 	if illustrated != null:
 		illustrated.quality=quality;illustrated.low_power=performance.low_power
 		illustrated.intensity=environment_intensity;illustrated.density=petal_density;illustrated.parallax=parallax_enabled
+		illustrated.show_branches=decorative_branches
+		illustrated.shadow_opacity=shadow_opacity;illustrated.shadow_softness=shadow_softness
+		illustrated.weather.mode=weather_mode;illustrated.weather.strength=weather_strength
+		illustrated.weather.rain_enabled=weather_rain;illustrated.weather.clouds_enabled=weather_clouds;illustrated.weather.fog_enabled=weather_fog
+		illustrated.weather.night_effects=night_effects;illustrated.weather.nighttime=illustrated.displayed_slot=="nighttime" and not illustrated.displayed_path.is_empty()
 		illustrated.apply_performance()
+		illustrated.petals.material.set_shader_parameter("wind",2.5 if weather_mode=="windy" else 1.0)
+		_lighting_dirty=true
 	if park != null:
 		park.quality = quality
 		park.petal_density = petal_density
@@ -520,11 +638,13 @@ func _apply_stage_mode() -> void:
 	park.suspended=stage_mode==0 or not performance.focused or performance.minimized
 	stage_environment.background_mode=Environment.BG_CANVAS if stage_mode==0 else Environment.BG_SKY
 	stage_environment.background_canvas_max_layer=-1
+	if reduced_renderer!=null:reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
 	illustrated.enabled=stage_mode==0
 	illustrated.apply_performance()
 	_place_character()
 
 func _place_character() -> void:
+	if character!=null and character.ground.active:return
 	if character==null or camera==null or illustrated==null:return
 	character.scale=Vector3.ONE*(character_scale if stage_mode==0 else 1.0)
 	character.position=Vector3.ZERO
@@ -534,11 +654,17 @@ func _place_character() -> void:
 		var direction: Vector3=camera.project_ray_normal(pixel)
 		if absf(direction.z)>0.001:character.position=origin-direction*(origin.z/direction.z)
 	illustrated.character_anchor=character_anchor;illustrated.character_scale=character_scale;illustrated.resize()
+	if character.ground!=null and not character.ground.active:character.ground.reset_origin(character)
 
 func _image_selected(path: String) -> void:
-	if illustrated.load_local(path,_choose_overlay):
-		stage_mode=0;_apply_stage_mode();_save()
+	var loaded: bool=illustrated.load_local(path,true) if _choose_overlay else illustrated.assign_time_image(_choose_time_slot,path)
+	if loaded:
+		if _choose_overlay:
+			decorative_branches=true
+			if branches_toggle!=null:branches_toggle.set_pressed_no_signal(true)
+		stage_mode=0;_apply_stage_mode();_update_world(true);_save()
 	image_status.text=illustrated.message
+	_refresh_world_labels()
 
 func _build_scenery_settings(box: VBoxContainer, root: Control) -> void:
 	box.add_child(_label("Illustrated scenery",18))
@@ -553,8 +679,8 @@ func _build_scenery_settings(box: VBoxContainer, root: Control) -> void:
 	box.add_child(image_status)
 	for overlay: bool in [false,true]:
 		var choose: Button=Button.new()
-		choose.text="Choose transparent foreground…" if overlay else "Choose local park image…"
-		choose.pressed.connect(func(): _choose_overlay=overlay; image_dialog.popup_centered_ratio(0.7))
+		choose.text="Choose transparent foreground…" if overlay else "Choose sunset park image…"
+		choose.pressed.connect(func(): _choose_overlay=overlay; _choose_time_slot="sunset"; image_dialog.popup_centered_ratio(0.7))
 		box.add_child(choose)
 	image_dialog=FileDialog.new();image_dialog.file_mode=FileDialog.FILE_MODE_OPEN_FILE;image_dialog.access=FileDialog.ACCESS_FILESYSTEM
 	image_dialog.filters=PackedStringArray(["*.png,*.jpg,*.jpeg,*.webp ; Images"])
@@ -570,10 +696,189 @@ func _build_scenery_settings(box: VBoxContainer, root: Control) -> void:
 	box.add_child(parallax_toggle)
 
 func _preview_action(name: String) -> bool:
-	if bridge.state.get("voice","")=="active" or bridge.session_may_be_active or bridge.command_pending() or envelope.speaking:
+	if character.ground.active or bridge.state.get("voice","")=="active" or bridge.session_may_be_active or bridge.command_pending() or envelope.speaking:
 		action_status.text="Action preview paused during Voice. Your conversation keeps control."
 		return false
-	_select_state(1);character.set_state(Character.State.IDLE)
+	_select_state(1);character.set_state(Character.State.IDLE);character.motion.conversation_active=false
 	var ok: bool=character.play_gesture(name)
 	action_status.text="Preview: "+name.replace("_"," ") if ok else "This action is unavailable."
 	return ok
+
+func _load_world_settings() -> void:
+	ambience_level=clampf(float(settings.get_value("world","ambience",0.)),0,.25)
+	ground_auto=bool(settings.get_value("ground","automatic",false))
+	ground_regions=settings.get_value("ground","regions",{}).duplicate() if settings.get_value("ground","regions",{}) is Dictionary else {}
+	night_rest=bool(settings.get_value("world","night_rest",false));rest_after=clampf(float(settings.get_value("world","rest_after",180.)),30.,1800.)
+	cycle.override_slot=str(settings.get_value("world","override",""))
+	if cycle.override_slot not in WorldCycle.SLOTS:cycle.override_slot=""
+	var boundaries_value: Variant=settings.get_value("world","boundaries",cycle.boundaries)
+	if boundaries_value is PackedInt32Array:cycle.set_boundaries(boundaries_value)
+	cycle.transition_seconds=clampf(float(settings.get_value("world","fade_seconds",8.)),.2,30.)
+	clean_presentation=bool(settings.get_value("display","clean",false))
+	character_brightness=clampf(float(settings.get_value("world","brightness",1.)),.5,1.5)
+	character_contrast=clampf(float(settings.get_value("world","contrast",1.)),.7,1.3)
+	color_matching=bool(settings.get_value("world","color_matching",true))
+	weather_mode=str(settings.get_value("world","weather","clear"))
+	if weather_mode not in illustrated_weather_modes():weather_mode="clear"
+	weather_strength=clampf(float(settings.get_value("world","weather_strength",.5)),0,1)
+	weather_rain=bool(settings.get_value("world","rain",true));weather_clouds=bool(settings.get_value("world","clouds",true));weather_fog=bool(settings.get_value("world","fog",true))
+	night_effects=bool(settings.get_value("world","night_effects",false))
+	shadow_opacity=clampf(float(settings.get_value("world","shadow_opacity",.65)),0,1);shadow_softness=clampf(float(settings.get_value("world","shadow_softness",1.)),.25,1.25)
+	decorative_branches=bool(settings.get_value("world","branches",not str(settings.get_value("environment","foreground_path","")).is_empty()));reduced_detail=bool(settings.get_value("performance","reduced_detail",true))
+	render_scale=clampf(float(settings.get_value("performance","render_scale",1.)),.5,1.)
+	adaptive.enabled=bool(settings.get_value("performance","adaptive",false));adaptive.reset(render_scale)
+
+func illustrated_weather_modes() -> Array[String]:return ["clear","cloudy","light_rain","heavy_rain","windy","misty"]
+
+func _toggle_settings() -> void:
+	if clean_presentation:_set_clean(false,false);settings_panel.visible=true
+	else:settings_panel.visible=not settings_panel.visible
+	_refresh_world_labels();_update_ground_guide()
+
+func _set_clean(on: bool,save_value: bool=true) -> void:
+	clean_presentation=on;ui_layer.visible=not on
+	if on and get_viewport().gui_get_focus_owner()!=null:get_viewport().gui_get_focus_owner().release_focus()
+	if clean_toggle!=null:clean_toggle.set_pressed_no_signal(on)
+	_update_ground_guide()
+	if save_value:_save()
+
+func _update_world(force: bool=false) -> void:
+	if illustrated==null:return
+	var requested: String="rain" if weather_mode in ["light_rain","heavy_rain"] else cycle.local_slot()
+	if character!=null and character.ground.active:
+		_world_pending=_world_pending or force or requested!=illustrated.requested_slot
+		illustrated.message="Scene change waits for the current short step sequence to return home." if requested!=illustrated.requested_slot else illustrated.message
+		_refresh_world_labels();return
+	if stage_mode==0 and (force or _world_pending or requested!=illustrated.requested_slot):
+		_world_pending=false
+		illustrated.select_slot(requested,cycle.transition_seconds)
+		_lighting_dirty=true
+	_refresh_world_labels()
+
+func _world_image_changed() -> void:
+	_lighting_dirty=true
+	if illustrated.fade_progress>=1.:
+		if _behavior_period!="morning" and illustrated.displayed_slot=="morning":_morning_stretch=true
+		_behavior_period=illustrated.displayed_slot
+		character.motion.set_context(illustrated.displayed_slot,weather_mode)
+		_load_ground_region()
+		illustrated.weather.nighttime=illustrated.displayed_slot=="nighttime" and not illustrated.displayed_path.is_empty();illustrated.weather.apply()
+	_refresh_world_labels();_save()
+
+func _refresh_world_labels() -> void:
+	if settings_panel!=null and not settings_panel.visible:return
+	if time_status!=null:time_status.text=("Local clock" if cycle.override_slot.is_empty() else "Manual")+" · "+cycle.local_slot().capitalize()+"
+"+illustrated.message
+	if image_status!=null:image_status.text=illustrated.message
+	for slot: String in slot_status_labels:
+		slot_status_labels[slot].text=slot.capitalize()+": "+("assigned locally" if FileAccess.file_exists(str(illustrated.slot_paths.get(slot,""))) else "missing · existing image retained")
+
+func _apply_world_lighting() -> void:
+	if character==null:return
+	var profile: Dictionary=illustrated.lighting_profile() if stage_mode==0 else {"color":Color("fff0e3"),"energy":1.,"ambient":.46}
+	var tint: Color=profile.color if color_matching else Color.WHITE
+	light.light_color=tint;light.light_energy=light_energy*profile.energy*character_brightness
+	stage_environment.ambient_light_color=tint;stage_environment.ambient_light_energy=profile.ambient
+	character.set_appearance(tint,profile.energy,character_brightness,character_contrast)
+	if reduced_renderer!=null:reduced_renderer.sync_camera()
+	_lighting_dirty=false
+
+func _check(box: VBoxContainer,title: String,on: bool,changed: Callable) -> CheckButton:
+	var check: CheckButton=CheckButton.new();check.text=title;check.button_pressed=on;check.add_theme_font_size_override("font_size",13);check.toggled.connect(changed);box.add_child(check);return check
+
+func _build_world_settings(box: VBoxContainer) -> void:
+	box.add_child(_label("Local time & image slots",18))
+	time_status=_label("",12);time_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(time_status)
+	time_override_select=OptionButton.new();time_override_select.add_item("Mac local clock · automatic")
+	for label: String in WorldCycle.LABELS:time_override_select.add_item(label+" · manual")
+	time_override_select.select(0 if cycle.override_slot.is_empty() else WorldCycle.SLOTS.find(cycle.override_slot)+1)
+	time_override_select.item_selected.connect(func(index: int):cycle.override_slot="" if index==0 else WorldCycle.SLOTS[index-1];_update_world(true);_save());box.add_child(time_override_select)
+	for slot: String in WorldCycle.IMAGE_SLOTS:
+		var label: Label=_label("",12);label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(label);slot_status_labels[slot]=label
+		var choose: Button=Button.new();choose.text="Assign "+slot+" image…"
+		choose.pressed.connect(func():_choose_overlay=false;_choose_time_slot=slot;image_dialog.popup_centered_ratio(.7));box.add_child(choose)
+	if not legacy_sunset_path.is_empty():
+		var alternative: Button=Button.new();alternative.text="Use previous local sunset"
+		alternative.pressed.connect(func():
+			if illustrated.assign_time_image("sunset",legacy_sunset_path,false):cycle.override_slot="sunset";time_override_select.select(3);_update_world(true);_save()
+		);box.add_child(alternative)
+	var supplied: Button=Button.new();supplied.text="Use supplied sunset image";supplied.disabled=not FileAccess.file_exists(WorldCycle.BUNDLED.sunset)
+	supplied.pressed.connect(func():
+		if illustrated.assign_time_image("sunset",WorldCycle.BUNDLED.sunset,false):cycle.override_slot="sunset";time_override_select.select(3);_update_world(true);_save()
+	);box.add_child(supplied)
+	for index in 4:
+		var hour: SpinBox=SpinBox.new();hour.min_value=0;hour.max_value=23.5;hour.step=.5;hour.value=float(cycle.boundaries[index])/60.;hour.prefix=WorldCycle.LABELS[index]+" starts · ";hour.suffix=" h"
+		hour.value_changed.connect(func(value: float):
+			var candidate: PackedInt32Array=cycle.boundaries.duplicate();candidate[index]=roundi(value*60.)
+			if not cycle.set_boundaries(candidate):hour.set_value_no_signal(float(cycle.boundaries[index])/60.)
+			else:_update_world(true);_save()
+		);box.add_child(hour)
+	_slider(box,"Image crossfade (seconds)",.2,30,.2,cycle.transition_seconds,func(value: float):cycle.transition_seconds=value;_save())
+	box.add_child(_label("Weather · separate transparent layers",16))
+	var weather_select: OptionButton=OptionButton.new()
+	for item: String in illustrated_weather_modes():weather_select.add_item(item.replace("_"," ").capitalize())
+	weather_select.select(illustrated_weather_modes().find(weather_mode));weather_select.item_selected.connect(func(index: int):weather_mode=illustrated_weather_modes()[index];_apply_performance_settings();_save());box.add_child(weather_select)
+	_slider(box,"Weather strength (0 = off)",0,1,.05,weather_strength,func(value: float):weather_strength=value;_apply_performance_settings();_save())
+	_check(box,"Animated rain layer",weather_rain,func(on: bool):weather_rain=on;_apply_performance_settings();_save())
+	_check(box,"Cloud layer",weather_clouds,func(on: bool):weather_clouds=on;_apply_performance_settings();_save())
+	_check(box,"Mist layer",weather_fog,func(on: bool):weather_fog=on;_apply_performance_settings();_save())
+	_check(box,"Night fireflies · optional",night_effects,func(on: bool):night_effects=on;_apply_performance_settings();_save())
+	branches_toggle=_check(box,"Separate foreground / branch layer",decorative_branches,func(on: bool):decorative_branches=on;_apply_performance_settings();_save())
+	_slider(box,"Quiet synthetic ambience (0 = off)",0,.25,.01,ambience_level,func(value: float):ambience_level=value;ambience.level=value;_save())
+	box.add_child(_label("Character integration",16))
+	_check(box,"Match character light to visible image",color_matching,func(on: bool):color_matching=on;_apply_world_lighting();_save())
+	_slider(box,"Character brightness",.5,1.5,.05,character_brightness,func(value: float):character_brightness=value;_apply_world_lighting();_save())
+	_slider(box,"Contrast · Low / Balanced",.7,1.3,.05,character_contrast,func(value: float):character_contrast=value;_apply_world_lighting();_save())
+	_slider(box,"Contact shadow opacity",0,1,.05,shadow_opacity,func(value: float):shadow_opacity=value;_apply_performance_settings();_save())
+	_slider(box,"Contact shadow softness",.25,1.25,.05,shadow_softness,func(value: float):shadow_softness=value;_apply_performance_settings();_save())
+	_check(box,"Reduced body/hair detail · native LOD",reduced_detail,func(on: bool):reduced_detail=on;character.set_detail_reduction(on);_save())
+	_slider(box,"3D render resolution (1 = native)",.5,1,.05,render_scale,func(value: float):render_scale=value;adaptive.reset(value);reduced_renderer.configure(value,stage_mode==0,performance.minimized);_save())
+	_check(box,"Adapt 3D resolution if persistently slow",adaptive.enabled,func(on: bool):adaptive.enabled=on;adaptive.reset(render_scale);reduced_renderer.configure(render_scale,stage_mode==0,performance.minimized);_save())
+	clean_toggle=_check(box,"Clean presentation · H (Tab restores)",clean_presentation,func(on: bool):_set_clean(on))
+
+func _load_ground_region() -> void:
+	if character==null:return
+	var region: Dictionary=ground_regions.get(illustrated.displayed_slot,{})
+	character.ground.calibrated=bool(region.get("enabled",false)) and str(region.get("path",""))==illustrated.displayed_path and not illustrated.displayed_path.is_empty()
+	character.ground.width=clampf(float(region.get("width",.8)),.6,1.2);character.ground.depth=clampf(float(region.get("depth",.9)),.6,1.0)
+	if ground_calibration!=null:ground_calibration.set_pressed_no_signal(character.ground.calibrated)
+	_sync_slider(ground_width_slider,character.ground.width);_sync_slider(ground_depth_slider,character.ground.depth)
+	_update_ground_guide()
+	if ground_status!=null:ground_status.text=("Calibrated for "+illustrated.displayed_slot if character.ground.calibrated else "Steps disabled until this image's clear ground is calibrated. No painted-object collision map is inferred.")
+
+func _store_ground_region() -> void:
+	ground_regions[illustrated.displayed_slot]={"enabled":character.ground.calibrated,"path":illustrated.displayed_path,"width":character.ground.width,"depth":character.ground.depth};_save()
+
+func _preview_steps(name: String) -> bool:
+	if bridge.command_pending() or bridge.session_may_be_active or character.motion.conversation_active or illustrated.fade_progress<1. or illustrated._worker!=null:return false
+	var result: bool=character.ground.play(name,character)
+	if ground_status!=null:ground_status.text=character.ground.message
+	return result
+
+func _build_ground_settings(box: VBoxContainer) -> void:
+	box.add_child(_label("Virtual ground · short steps",16))
+	_check(box,"Show virtual ground boundary",false,func(on: bool):show_ground_guide=on;_update_ground_guide())
+	ground_status=_label("",12);ground_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(ground_status)
+	ground_calibration=_check(box,"I calibrated clear ground for this image",false,func(on: bool):
+		if illustrated.displayed_path.is_empty():ground_calibration.set_pressed_no_signal(false);return
+		character.ground.calibrated=on;_ground_wait=120.;_store_ground_region();_load_ground_region()
+	)
+	ground_width_slider=_slider(box,"Clear ground width (meters)",.6,1.2,.02,.8,func(value: float):character.ground.width=value;_store_ground_region();_update_ground_guide())
+	ground_depth_slider=_slider(box,"Clear ground depth (meters)",.6,1.,.02,.9,func(value: float):character.ground.depth=value;_store_ground_region();_update_ground_guide())
+	_check(box,"Occasional calibrated steps when idle",ground_auto,func(on: bool):ground_auto=on;_ground_wait=120.;_save())
+	var actions: OptionButton=OptionButton.new()
+	for action: String in ["Short steps forward + return","Short steps backward + return","Short forward/back pacing","Step turn left + return","Step turn right + return"]:actions.add_item(action)
+	box.add_child(actions)
+	var preview: Button=Button.new();preview.text="Preview calibrated short steps";preview.pressed.connect(func():_preview_steps(character.ground.ACTIONS[actions.selected]));box.add_child(preview)
+	_check(box,"Optional standing night rest when idle",night_rest,func(on: bool):night_rest=on;_idle_duration=0.;_save())
+	_slider(box,"Night rest after idle seconds",30,1800,30,rest_after,func(value: float):rest_after=value;_save())
+	_load_ground_region()
+
+func _update_ground_guide() -> void:
+	if ground_guide==null or character==null:return
+	ground_guide.show_region(camera,character.ground.origin,character.ground.width,character.ground.depth,show_ground_guide and settings_panel!=null and settings_panel.visible and not clean_presentation and stage_mode==0)
+
+func _sync_slider(slider: HSlider,value: float) -> void:
+	if slider==null:return
+	slider.set_value_no_signal(value)
+	var label: Label=slider.get_meta("caption");label.text="%s · %.2f"%[slider.get_meta("title"),value]

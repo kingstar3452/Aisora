@@ -10,7 +10,17 @@ const TALKING: int = 3
 const SLEEPING: int = 4
 const GESTURE_DURATION: Dictionary = {"wave": 4.2, "stretch": 5.2, "inspect": 4.8, "settle": 3.4, "explain": 3.5, "nod": 2.0, "breathe":4.8,"look_sides":5.8,"look_up":4.6,"look_down":4.2,"fingers":5.8,"hands":5.5,"back_stretch":5.0,"curious":4.0,"fold_arms":6.0,"hand_face":5.2,"weight_shift":5.5,"brush_hair":4.8,"playful":4.5}
 
+const FINGER_CHAINS: Dictionary={
+	"Left":[["LeftIndexProximal","LeftIndexIntermediate","LeftIndexDistal"],["LeftMiddleProximal","LeftMiddleIntermediate","LeftMiddleDistal"],["LeftRingProximal","LeftRingIntermediate","LeftRingDistal"],["LeftLittleProximal","LeftLittleIntermediate","LeftLittleDistal"]],
+	"Right":[["RightIndexProximal","RightIndexIntermediate","RightIndexDistal"],["RightMiddleProximal","RightMiddleIntermediate","RightMiddleDistal"],["RightRingProximal","RightRingIntermediate","RightRingDistal"],["RightLittleProximal","RightLittleIntermediate","RightLittleDistal"]]
+}
+const REST_ARM_Z: float=1.10
 const ARM_BONES: Dictionary = {"Left":["LeftUpperArm","LeftLowerArm","LeftHand"],"Right":["RightUpperArm","RightLowerArm","RightHand"]}
+var locomotion_active: bool=false
+var queued_gesture: String=""
+var context_weights: Dictionary={}
+var micro_speed: float=1.0
+var gesture_speed: float=1.0
 var conversation_active: bool = false
 var scheduler_enabled: bool = true
 var _scheduler_configured: bool = false
@@ -78,11 +88,14 @@ func transition_to(next: int) -> void:
 	gaze_wait = 0.0
 	if not gesture.is_empty():
 		cancelling = true
+	queued_gesture=""
 	gesture_wait = rng.randf_range(interval_min,maxf(interval_min,interval_max)) if next==IDLE else rng.randf_range(3.0,6.0)
 
 func start_gesture(name: String) -> bool:
 	if mode == SLEEPING or not GESTURE_DURATION.has(name) or (conversation_active and name not in ["nod","explain"]):
 		return false
+	if not gesture.is_empty():
+		queued_gesture=name;cancelling=true;return true
 	gesture = name
 	last_gesture = name
 	gesture_time = 0.0
@@ -99,7 +112,7 @@ func tick(delta: float, audio_mouth: float) -> Dictionary:
 	if not is_finite(delta) or delta <= 0.0:
 		return poses
 	var dt: float = minf(delta, 0.1)
-	time += dt
+	time += dt*micro_speed
 	intensity = clampf(intensity, 0.0, 1.6)
 	var state_blend: float = 1.0 - exp(-dt * 3.8)
 	for state: int in weights:
@@ -114,7 +127,7 @@ func tick(delta: float, audio_mouth: float) -> Dictionary:
 	var idle: float = float(weights[IDLE]) * awake
 	_update_targets(dt)
 	breath_speed = lerpf(breath_speed, lerpf(breath_target, 0.72, sleep_amount), 1.0 - exp(-dt * 1.5))
-	breath_phase += dt * breath_speed
+	breath_phase += dt * breath_speed*micro_speed
 	var breath: float = sin(breath_phase)
 	var sway: float = (sin(time * 0.63 + phase) * 0.55 + posture.x * 0.45) * intensity * awake
 	var wake: float = sin(clampf(wake_time / 2.6, 0.0, 1.0) * PI) * intensity
@@ -126,12 +139,14 @@ func tick(delta: float, audio_mouth: float) -> Dictionary:
 	layers.posture["Head"] = Vector3(sleep_amount * 0.19 - wake * 0.07, think * 0.14, sleep_amount * 0.13 + listen * 0.07)
 	layers.posture["LeftShoulder"] = Vector3(0.0, 0.0, -sleep_amount * 0.04 + wake * 0.045)
 	layers.posture["RightShoulder"] = Vector3(0.0, 0.0, sleep_amount * 0.04 - wake * 0.045)
-	layers.posture["LeftUpperArm"] = Vector3(-sleep_amount * 0.18, 0.0, -1.22 + sleep_amount * 0.10 + sway * 0.045)
-	layers.posture["RightUpperArm"] = Vector3(-sleep_amount * 0.18 - think * 0.20, 0.0, 1.22 - sleep_amount * 0.10 + sway * 0.045 - think * 0.09)
+	layers.posture["LeftUpperArm"] = Vector3(-sleep_amount * 0.18, 0.0, -REST_ARM_Z + sleep_amount * 0.10 + sway * 0.045)
+	layers.posture["RightUpperArm"] = Vector3(-sleep_amount * 0.18 - think * 0.20, 0.0, REST_ARM_Z - sleep_amount * 0.10 + sway * 0.045 - think * 0.09)
 	layers.posture["LeftLowerArm"] = Vector3(0.0, -0.16 - sleep_amount * 0.25, 0.0)
 	layers.posture["RightLowerArm"] = Vector3(0.0, 0.16 + sleep_amount * 0.25 + think * 0.45, 0.0)
 	layers.posture["LeftHand"] = Vector3(0.0, 0.0, -sleep_amount * 0.06)
 	layers.posture["RightHand"] = Vector3(0.0, 0.0, sleep_amount * 0.06)
+	for side: String in ["Left","Right"]:
+		for chain: Array in FINGER_CHAINS[side]:layers.posture[chain[0]]=Vector3(0,0,-.12 if side=="Left" else .12)
 	layers.gaze["Head"] = Vector3(gaze.y * 0.07, gaze.x * 0.16, gaze.x * 0.035)
 	layers.gaze["Neck"] = Vector3(0.0, gaze.x * 0.055, sin(time * 0.41 + phase) * 0.025 * intensity * awake)
 	var speech: float = clampf(audio_mouth * 2.0, 0.0, 1.0) * talk * intensity
@@ -168,30 +183,32 @@ func _update_targets(dt: float) -> void:
 
 func _update_gesture(dt: float) -> void:
 	if not gesture.is_empty():
-		if conversation_active and gesture not in ["nod","explain"]: cancelling = true
-		gesture_time += dt
+		if conversation_active and gesture not in ["nod","explain"]: cancelling = true;queued_gesture=""
+		gesture_time += dt*gesture_speed
 		if cancelling:
 			gesture_cancel = move_toward(gesture_cancel, 0.0, dt * 2.8)
 		if gesture_time >= float(GESTURE_DURATION[gesture]) or gesture_cancel <= 0.0:
 			gesture = ""
+			if not queued_gesture.is_empty():
+				var queued: String=queued_gesture;queued_gesture="";start_gesture(queued)
 			gesture_wait = rng.randf_range(clampf(interval_min,5.0,120.0),clampf(maxf(interval_min,interval_max),5.0,180.0)) if mode == IDLE else rng.randf_range(4.0, 8.0)
 		return
 	gesture_wait -= dt
 	if gesture_wait > 0.0 or mode == SLEEPING or sleep_amount > 0.1 or wake_time < 2.6 or intensity < 0.05:
 		return
 	if mode == IDLE:
-		if not scheduler_enabled or conversation_active:return
+		if not scheduler_enabled or conversation_active or locomotion_active:return
 		var available: int=0
 		for name: String in Catalog.IDS:
-			if float(action_weights.get(name,0.0))>0.0:available+=1
+			if _action_weight(name)>0.0:available+=1
 		var total: float=0.0
 		for name: String in Catalog.IDS:
-			if name!=last_gesture or available==1:total+=clampf(float(action_weights.get(name,0.0)),0.0,5.0)
+			if name!=last_gesture or available==1:total+=clampf(_action_weight(name),0.0,5.0)
 		if total<=0.0:gesture_wait=1.0;return
 		var choice: float=rng.randf()*total
 		for name: String in Catalog.IDS:
 			if name==last_gesture and available>1:continue
-			choice-=clampf(float(action_weights.get(name,0.0)),0.0,5.0)
+			choice-=clampf(_action_weight(name),0.0,5.0)
 			if choice<0.0:start_gesture(name);return
 		return
 	if conversation_active and mode==THINKING:return
@@ -210,7 +227,7 @@ func _gesture_pose(strength: float) -> Dictionary:
 	if gesture.is_empty():
 		return EMPTY_POSE
 	var duration: float = float(GESTURE_DURATION[gesture])
-	var fade: float = smoothstep(0.0, 0.75, gesture_time) * (1.0 - smoothstep(duration - 0.8, duration, gesture_time)) * gesture_cancel * strength
+	var fade: float = smoothstep(0.0, 0.9, gesture_time) * (1.0 - smoothstep(duration - 0.9, duration, gesture_time)) * gesture_cancel * minf(strength,1.0)
 	if _gesture_work_name != gesture:
 		_gesture_work.clear()
 		_gesture_work_name = gesture
@@ -255,16 +272,18 @@ func _gesture_pose(strength: float) -> Dictionary:
 		"look_down":
 			result["Head"]=Vector3(0.30,0,0);result["Neck"]=Vector3(0.05,0,0)
 		"fingers":
-			_arm(result,"Left",Vector3(-0.24,-0.45,-0.925),-1.75)
+			_arm(result,"Left",Vector3(-0.225,-0.46,-0.75),-1.59)
 			result["Head"]=Vector3(0.20,0.20,0)
 			result["LeftHand"]=Vector3(0.05,0.08,0.12)
+			_soft_fingers(result,"Left",.18)
 			var curl: float=0.20+0.15*sin(gesture_time*3.0)
 			result["LeftIndexProximal"]=Vector3(0,0,-curl)
 			result["LeftIndexIntermediate"]=Vector3(0,0,-curl*0.6)
 			result["LeftMiddleProximal"]=Vector3(0,0,-0.35)
 		"hands":
-			_arm(result,"Left",Vector3(0.21,-0.635,-0.78),-1.315)
-			_arm(result,"Right",Vector3(0.21,0.635,0.78),1.315)
+			_arm(result,"Left",Vector3(0.245,-0.755,-0.39),-1.23)
+			_arm(result,"Right",Vector3(0.245,0.755,0.39),1.23)
+			_soft_fingers(result,"Left",.10);_soft_fingers(result,"Right",.10)
 			result["Head"]=Vector3(0.24,0,0)
 			result["LeftHand"]=Vector3(0.08,sin(gesture_time*1.6)*0.20,0.12)
 			result["RightHand"]=Vector3(0.08,-sin(gesture_time*1.6)*0.20,-0.12)
@@ -275,13 +294,15 @@ func _gesture_pose(strength: float) -> Dictionary:
 		"curious":
 			result["Head"]=Vector3(-0.03,0.04,gesture_side*0.21)
 		"fold_arms":
-			_arm(result,"Left",Vector3(0.825,-0.78,-0.90),-1.53)
-			_arm(result,"Right",Vector3(0.705,0.67,1.25),1.065)
+			var inward: float=smoothstep(.8,1.6,gesture_time)*(1.-smoothstep(duration-1.6,duration-.8,gesture_time))
+			_arm(result,"Left",Vector3(.245,-.755,-.39).lerp(Vector3(.59,-.92,-.25),inward),lerpf(-1.23,-1.455,inward))
+			_arm(result,"Right",Vector3(.245,.755,.39).lerp(Vector3(.72,.92,.20),inward),lerpf(1.23,1.315,inward))
+			_soft_fingers(result,"Left",.26);_soft_fingers(result,"Right",.26)
 			result["LeftHand"]=Vector3(0,0.12,0.08);result["RightHand"]=Vector3(0,-0.15,-0.08)
 			result["LeftIndexProximal"]=Vector3(0,0,-0.25);result["RightIndexProximal"]=Vector3(0,0,0.25)
 			result["LeftMiddleProximal"]=Vector3(0,0,-0.35);result["RightMiddleProximal"]=Vector3(0,0,0.35)
 		"hand_face":
-			_arm(result,"Left",Vector3(-0.56,-0.45,-0.535),-2.20)
+			_arm(result,"Left",Vector3(-0.66,-0.8,-0.95),-2.05)
 			result["Head"]=Vector3(0.02,0.02,-0.05)
 			result["LeftHand"]=Vector3(0.12,0.08,0.15)
 		"weight_shift":
@@ -291,9 +312,9 @@ func _gesture_pose(strength: float) -> Dictionary:
 			result["LeftFoot"]=Vector3(0,0,shift*0.027);result["RightFoot"]=Vector3(0,0,shift*0.027)
 			hips_offset.x+=shift*0.022*fade
 		"brush_hair":
-			_arm(result,"Right",Vector3(-1.125,0.45+sin(gesture_time*2.0)*0.07,0.115),2.10)
+			_arm(result,"Right",Vector3(-0.96,1.0,0.8),1.885)
 			result["Head"]=Vector3(0,0.03,0.055)
-			result["RightHand"]=Vector3(-0.18,-0.08,sin(gesture_time*2.0)*0.16)
+			result["RightHand"]=Vector3(-0.10,-0.05,sin(gesture_time*2.0)*0.10)
 		"playful":
 			_arm(result,"Left",Vector3(-0.285,-0.40,-0.775),-1.30)
 			_arm(result,"Right",Vector3(-0.285,0.40,0.775),1.30)
@@ -326,7 +347,7 @@ func _limit_poses() -> void:
 func _arm(result: Dictionary, side: String, upper: Vector3, lower_y: float) -> void:
 	var bones: Array=ARM_BONES[side]
 	var mirror: float=1.0 if side=="Left" else -1.0
-	result[bones[0]]=upper-Vector3(0,0,-1.22*mirror)
+	result[bones[0]]=upper-Vector3(0,0,-REST_ARM_Z*mirror)
 	result[bones[1]]=Vector3(0,lower_y+0.16*mirror,0)
 
 func configure_scheduler(low: float, high: float, on: bool, weights_value: Dictionary) -> void:
@@ -335,3 +356,21 @@ func configure_scheduler(low: float, high: float, on: bool, weights_value: Dicti
 		gesture_wait=rng.randf_range(low,high)
 	if scheduler_enabled and not on and mode==IDLE:cancelling=true
 	interval_min=low;interval_max=high;scheduler_enabled=on;action_weights=weights_value;_scheduler_configured=true
+
+func _action_weight(name: String) -> float:
+	return clampf(float(action_weights.get(name,0.0)),0,5)*float(context_weights.get(name,1.))
+
+func set_context(period: String,weather: String) -> void:
+	micro_speed=.78 if period=="nighttime" else (.92 if period=="sunset" else 1.)
+	context_weights.clear();gesture_speed=.85 if period=="nighttime" else (.92 if period=="sunset" else 1.)
+	if period=="morning":context_weights={"stretch":1.8,"back_stretch":1.5,"look_sides":1.4}
+	elif period=="nighttime":context_weights={"breathe":1.8,"curious":.7,"playful":.2,"wave":.4,"stretch":.5}
+	elif period=="sunset":context_weights={"breathe":1.4,"weight_shift":1.3,"playful":.6}
+	if weather in ["light_rain","heavy_rain"]:context_weights.look_up=1.8;context_weights.look_sides=1.4
+
+func _soft_fingers(result: Dictionary,side: String,amount: float) -> void:
+	var mirror: float=-1. if side=="Left" else 1.
+	for chain: Array in FINGER_CHAINS[side]:
+		result[chain[0]]=Vector3(0,0,amount*mirror)
+		result[chain[1]]=Vector3(0,0,amount*.6*mirror)
+		result[chain[2]]=Vector3(0,0,amount*.3*mirror)

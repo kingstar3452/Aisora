@@ -1,0 +1,461 @@
+{
+  "method": {
+    "runs": 3,
+    "measured_frames": 180,
+    "warmup_frames": 60,
+    "state": "talking",
+    "lp_num_threads": "2",
+    "uncapped": true,
+    "resolution": "960x600",
+    "ui_and_network": false,
+    "summary": "Median of per-run statistics, not pooled frame percentiles."
+  },
+  "medians": {
+    "phase4": {
+      "cpu": {
+        "mean_ms": 0.04027275,
+        "p50_ms": 0.03805,
+        "p95_ms": 0.06493
+      },
+      "render": {
+        "mean_ms": 20.1824722222222,
+        "p50_ms": 19.532,
+        "p95_ms": 25.044
+      }
+    },
+    "phase5-low": {
+      "cpu": {
+        "mean_ms": 0.08785525,
+        "p50_ms": 0.08686,
+        "p95_ms": 0.13273
+      },
+      "render": {
+        "mean_ms": 19.6738611111111,
+        "p50_ms": 18.848,
+        "p95_ms": 26.658
+      }
+    },
+    "phase5-low-0.75": {
+      "cpu": {
+        "mean_ms": 0.09654825,
+        "p50_ms": 0.10144,
+        "p95_ms": 0.15618
+      },
+      "render": {
+        "mean_ms": 21.8639333333333,
+        "p50_ms": 20.844,
+        "p95_ms": 27.745
+      }
+    }
+  },
+  "samples": [
+    {
+      "character_tick": {
+        "mean_ms": 0.03851675,
+        "p50_ms": 0.03749,
+        "p95_ms": 0.05317
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase4-1",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "Phase 4 original illustration",
+      "state": "talking",
+      "static_memory_bytes": 223363644.0,
+      "repetition": 1,
+      "case": "phase4"
+    },
+    {
+      "draw_calls": 24.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 20.1824722222222,
+        "p50_ms": 19.532,
+        "p95_ms": 25.044
+      },
+      "label": "phase4-1",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 39794.0,
+      "process_ms": 22.364,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "Phase 4 original illustration",
+      "state": "talking",
+      "static_memory_bytes": 43497149.0,
+      "video_memory_bytes": 264021354.0,
+      "repetition": 1,
+      "case": "phase4"
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.08568025,
+        "p50_ms": 0.08686,
+        "p95_ms": 0.13273
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase5-low-1",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 224060340.0,
+      "repetition": 1,
+      "case": "phase5-low"
+    },
+    {
+      "draw_calls": 22.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 25.2001055555556,
+        "p50_ms": 23.606,
+        "p95_ms": 35.116
+      },
+      "label": "phase5-low-1",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 23850.0,
+      "process_ms": 39.097,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 45585265.0,
+      "video_memory_bytes": 264383531.0,
+      "repetition": 1,
+      "case": "phase5-low"
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.09132275,
+        "p50_ms": 0.09724,
+        "p95_ms": 0.14722
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase5-low-0.75-1",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "render_scale": 0.75,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 224080888.0,
+      "repetition": 1,
+      "case": "phase5-low-0.75"
+    },
+    {
+      "character_resolution": "(720, 450)",
+      "draw_calls": 23.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 21.8639333333333,
+        "p50_ms": 20.844,
+        "p95_ms": 27.745
+      },
+      "label": "phase5-low-0.75-1",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 16712.0,
+      "process_ms": 29.14,
+      "quality": 0,
+      "render_scale": 0.75,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 45610405.0,
+      "video_memory_bytes": 266975531.0,
+      "repetition": 1,
+      "case": "phase5-low-0.75"
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.04027275,
+        "p50_ms": 0.03805,
+        "p95_ms": 0.06493
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase4-2",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "Phase 4 original illustration",
+      "state": "talking",
+      "static_memory_bytes": 223363644.0,
+      "repetition": 2,
+      "case": "phase4"
+    },
+    {
+      "draw_calls": 24.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 23.7841,
+        "p50_ms": 21.581,
+        "p95_ms": 37.332
+      },
+      "label": "phase4-2",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 39794.0,
+      "process_ms": 26.815,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "Phase 4 original illustration",
+      "state": "talking",
+      "static_memory_bytes": 43497149.0,
+      "video_memory_bytes": 264021354.0,
+      "repetition": 2,
+      "case": "phase4"
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.08785525,
+        "p50_ms": 0.09312,
+        "p95_ms": 0.12969
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase5-low-2",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 224060340.0,
+      "repetition": 2,
+      "case": "phase5-low"
+    },
+    {
+      "draw_calls": 22.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 19.5127222222222,
+        "p50_ms": 18.848,
+        "p95_ms": 24.009
+      },
+      "label": "phase5-low-2",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 23850.0,
+      "process_ms": 22.347,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 45585265.0,
+      "video_memory_bytes": 264383531.0,
+      "repetition": 2,
+      "case": "phase5-low"
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.09654825,
+        "p50_ms": 0.10144,
+        "p95_ms": 0.15618
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase5-low-0.75-2",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "render_scale": 0.75,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 224080888.0,
+      "repetition": 2,
+      "case": "phase5-low-0.75"
+    },
+    {
+      "character_resolution": "(720, 450)",
+      "draw_calls": 23.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 54.8318555555556,
+        "p50_ms": 21.679,
+        "p95_ms": 98.95
+      },
+      "label": "phase5-low-0.75-2",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 16712.0,
+      "process_ms": 236.925,
+      "quality": 0,
+      "render_scale": 0.75,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 45610405.0,
+      "video_memory_bytes": 266975531.0,
+      "repetition": 2,
+      "case": "phase5-low-0.75"
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.0588795,
+        "p50_ms": 0.04087,
+        "p95_ms": 0.22886
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase4-3",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "Phase 4 original illustration",
+      "state": "talking",
+      "static_memory_bytes": 223363644.0,
+      "repetition": 3,
+      "case": "phase4"
+    },
+    {
+      "draw_calls": 24.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 19.9446722222222,
+        "p50_ms": 19.524,
+        "p95_ms": 23.215
+      },
+      "label": "phase4-3",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 39794.0,
+      "process_ms": 31.957,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "Phase 4 original illustration",
+      "state": "talking",
+      "static_memory_bytes": 43497149.0,
+      "video_memory_bytes": 264021354.0,
+      "repetition": 3,
+      "case": "phase4"
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.0889595,
+        "p50_ms": 0.0852,
+        "p95_ms": 0.13732
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase5-low-3",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 224060340.0,
+      "repetition": 3,
+      "case": "phase5-low"
+    },
+    {
+      "draw_calls": 22.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 19.6738611111111,
+        "p50_ms": 18.632,
+        "p95_ms": 26.658
+      },
+      "label": "phase5-low-3",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 23850.0,
+      "process_ms": 33.658,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 45585265.0,
+      "video_memory_bytes": 264383531.0,
+      "repetition": 3,
+      "case": "phase5-low"
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.09853,
+        "p50_ms": 0.1064,
+        "p95_ms": 0.16716
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase5-low-0.75-3",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "render_scale": 0.75,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 224080888.0,
+      "repetition": 3,
+      "case": "phase5-low-0.75"
+    },
+    {
+      "character_resolution": "(720, 450)",
+      "draw_calls": 23.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 20.8778944444444,
+        "p50_ms": 20.661,
+        "p95_ms": 23.904
+      },
+      "label": "phase5-low-0.75-3",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 16712.0,
+      "process_ms": 25.528,
+      "quality": 0,
+      "render_scale": 0.75,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 45610405.0,
+      "video_memory_bytes": 266975531.0,
+      "repetition": 3,
+      "case": "phase5-low-0.75"
+    }
+  ]
+}

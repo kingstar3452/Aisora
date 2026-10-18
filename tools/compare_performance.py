@@ -20,6 +20,7 @@ def main():
     parser.add_argument('--frames', type=int, default=180)
     parser.add_argument('--state', choices=['idle', 'talking'], default='talking')
     parser.add_argument('--presets', nargs='+', choices=['low', 'balanced', 'high'], default=['low', 'balanced', 'high'])
+    parser.add_argument('--scales', nargs='+', type=float, default=[1.0], help='Current-version 3D scales; baseline is always native.')
     parser.add_argument('--output', type=Path, default=Path('.local/performance-comparison.json'))
     args = parser.parse_args()
     if args.runs < 1 or args.frames < 60:
@@ -31,20 +32,23 @@ def main():
     environment.setdefault('LP_NUM_THREADS', '2')
     samples = []
     suffix = '-idle' if args.state == 'idle' else ''
-    cases = [(args.baseline_label+suffix, baseline, 0)]
-    cases += [(args.current_label+'-'+name+suffix, repo, ['low', 'balanced', 'high'].index(name))
-              for name in dict.fromkeys(args.presets)]
+    if any(not 0.5 <= scale <= 1.0 for scale in args.scales):
+        parser.error('Scales must be between 0.5 and 1.0.')
+    cases = [(args.baseline_label+suffix, baseline, 0, 1.0)]
+    cases += [(args.current_label+'-'+name+('' if scale == 1.0 else f'-{scale:g}')+suffix,
+               repo, ['low', 'balanced', 'high'].index(name), scale)
+              for name in dict.fromkeys(args.presets) for scale in dict.fromkeys(args.scales)]
     log_dir = repo / '.local/benchmarks'
     log_dir.mkdir(parents=True, exist_ok=True)
     # Interleave versions per repetition to reduce time-of-run bias, never overlap engines.
     for repetition in range(args.runs):
-        for label, project, quality in cases:
+        for label, project, quality, scale in cases:
             for mode in ['cpu', 'render']:
                 command = [str(project / 'tools/run_godot.sh')]
                 command += ['--headless'] if mode == 'cpu' else ['--audio-driver', 'Dummy']
                 command += ['--script', str(harness), '--', f'--mode={mode}',
                             f'--label={label}-{repetition+1}', f'--quality={quality}',
-                            f'--frames={args.frames}', f'--state={args.state}']
+                            f'--frames={args.frames}', f'--state={args.state}', f'--render-scale={scale}']
                 run = subprocess.run(command, cwd=project, env=environment,
                                      capture_output=True, text=True, timeout=180)
                 log = run.stdout + run.stderr
@@ -55,15 +59,16 @@ def main():
                     raise SystemExit(f'{label} {mode} failed; see {log_dir}')
                 result = json.loads(records[-1])
                 result['repetition'] = repetition + 1
+                result['case'] = label
                 samples.append(result)
                 metric = result['character_tick' if mode == 'cpu' else 'frame']
                 print(f'{label} #{repetition+1} {mode}: mean {metric["mean_ms"]:.3f} ms, '
                       f'p95 {metric["p95_ms"]:.3f} ms', flush=True)
     medians = {}
-    for label, _, _ in cases:
+    for label, _, _, _ in cases:
         medians[label] = {}
         for mode in ['cpu', 'render']:
-            subset = [r for r in samples if r['label'].startswith(label+'-') and r['mode'] == mode]
+            subset = [r for r in samples if r['case'] == label and r['mode'] == mode]
             metric = 'character_tick' if mode == 'cpu' else 'frame'
             medians[label][mode] = {field: statistics.median(r[metric][field] for r in subset)
                                     for field in ['mean_ms', 'p50_ms', 'p95_ms']}

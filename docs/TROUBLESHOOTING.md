@@ -33,3 +33,14 @@
 To shut down: end native Voice in ChatGPT, stop output capture in the extension, close the viewer, and Control+C the bridge/optional global-hotkey Terminal. Browser authentication remains entirely with the browser. Closing Godot alone does not end an ongoing ChatGPT Voice session.
 
 For a report, include engine/browser versions, operating system, exact visible error and which milestone fails. Do not attach pairing keys, cookies, account data or conversation transcripts.
+
+## Phase 5 scenery, motion and performance
+
+- Wrong time image: check **Local time & image slots**, manual override, the Mac clock/timezone and the ordered start hours. Default boundaries are 06:00 / 12:00 / 17:00 / 20:00. Rain overrides the time choice; select Clear to return. An active short-step sequence defers image changes until it returns home, including while Voice holds it.
+- Missing or unchanged picture: Settings explains whether a file is missing/loading. The existing valid image and light are retained. Assign a valid PNG/JPEG/WebP or restore the supplied sunset. **Use previous local sunset** preserves the old file; do not erase the application-data folder during an upgrade.
+- Rain remains with the animated layer off: the supplied rainy image itself contains painted rain. Choose Clear for the time-of-day background. Petals, rain/cloud/fog layers each have separate controls. Background branches cannot be individually animated without separate alpha artwork.
+- Steps disabled: calibration is per slot and exact image file. Use the visible virtual-ground rectangle, place Aisora on clear ground, confirm calibration and end Voice before previewing. The supplied artwork has no inferred obstacle map. Seating, floor rest and long walking are unavailable.
+- Lag: start Low, native LOD enabled, lower petals/weather, then try **3D render resolution 0.75**. F3 shows actual dimensions and frame times. Optional adaptation reduces resolution after sustained slow frames. Compare outside the editor; 15 FPS low-power is available. Neither setting guarantees iMac performance.
+- UI hidden: Tab restores Settings from clean mode; H toggles clean presentation. Connection details and manual Voice buttons are at the top of Settings. High uses original MToon and ignores the Low/Balanced contrast slider.
+
+See [Phase 5 acceptance checks](PHASE5.md) for installation, saved imports, crossfades and target-Mac limitations.

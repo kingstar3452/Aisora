@@ -4,7 +4,7 @@ A lightweight Godot 4 anime companion over an illustrated sakura background or i
 
 **Tested engine: Godot 4.6.3, Compatibility renderer.** The uploaded project advertised `4.7 / Forward Plus`; it had no scenes, scripts, or engine binary pin. This implementation explicitly selects the tested stable version and OpenGL Compatibility for the 2017 iMac.
 
-Phase 4 continues on `dev/aisora-companion`: a local illustrated background behind the original 3D character, with the Phase 3 park retained as a fallback. Fifteen requested standing actions, a weighted scheduler and clearer Voice pairing/recovery are implemented. Walking, sitting, lying, full turns and rising from the floor are explicitly unavailable. See [Phase 4 setup and limits](docs/PHASE4.md) and [Phase 4 performance evidence](docs/PERFORMANCE_PHASE4.md).
+Phase 5 continues on `dev/aisora-companion`: all five supplied morning/daytime/sunset/night/rain illustrations, local-clock selection, manual weather, smooth lighting/background fades and preserved local sunset alternatives. Fifteen standing actions are corrected, with optional calibrated short steps/step turns, native mesh LOD and reduced-resolution 3D rendering. Seated/floor poses and unrestricted walking remain unavailable. See [Phase 5 controls and limits](docs/PHASE5.md) and [performance evidence](docs/PERFORMANCE_PHASE5.md).
 
 ## Start on your Mac
 
@@ -33,14 +33,16 @@ F8 is **not** a system-wide shortcut unless you run the optional [macOS hotkey h
 
 ## What is implemented
 
-- Your VRM 0.0 model, imported with its original embedded textures, humanoid skeleton, and available facial controls. Low/Balanced use efficient textured shading; High restores the original MToon materials/outlines. No replacement character. A native canvas background keeps her fully 3D without a duplicate SubViewport render.
+- Your VRM 0.0 model, imported with its original embedded textures, humanoid skeleton, and available facial controls. Low/Balanced use efficient textured shading; High restores the original MToon materials/outlines. No replacement character. A native canvas background keeps her fully 3D; optional reduced-resolution rendering shares the same world and model.
 - Optional procedural Japanese cherry blossom park: eight sakura trees, pink blossom clusters, grass, a winding path, a wooden bench, a garden lantern, warm daylight and sparse falling petals. Original baked blossom/grass textures, merged curved wood/props and instanced cutout foliage; no asset downloads. Aisora stays centered and unobstructed.
-- A local PNG/JPEG/WebP background picker with covered aspect scaling, uniform 3D character scale/placement, separate ground shadow, optional transparent foreground, instanced petals and gentle lighting/parallax. Original placeholder artwork is bundled; supplied pictures stay local and are not redistributed.
+- A local PNG/JPEG/WebP background picker with covered aspect scaling, uniform 3D character scale/placement, separate ground shadow, optional transparent foreground, instanced petals and gentle lighting/parallax. The five supplied Phase 5 pictures are bundled as optimized WebP; custom picker imports stay in local application data. Local-clock time slots, rain priority and matching 3D lighting preserve the previous imported sunset as an alternative.
 - Layered breathing, gaze, posture, gestures and facial animation, with randomized timing. Visible swaying/weight shifts, waves, stretches, looking around, posture adjustments, speech-linked head/hand gestures, focused listening, and small hair-root motion. Sleep eases into a standing resting pose over 2.4 seconds and wakes over 1.8 seconds; the bench is scenery.
 - Five-state presentation controller with manual test overrides. Automatic mode distinguishes listening/talking from detected Voice state and output audio. Thinking follows an explicit visible Voice indicator when detected; otherwise use the manual test state. Silence alone never implies Thinking.
 - Authenticated loopback bridge and unpacked Chromium extension: explicit existing-tab selection, start/end/toggle attempts, visible-control state detection, command confirmation/timeouts, disconnect recovery, manual fallback.
 - Optional **ChatGPT tab output** capture in an offscreen extension document. Only scalar RMS amplitude leaves the audio analyzer; no microphone capture, recordings, or audio uploads. Smoothed mouth opening, silence gate and stale-audio closure. This is amplitude lip sync, not phoneme timing.
 - Standard resizable window by default. Foreground target 30 FPS, optional low-power 15 FPS, inactive 10 FPS, minimized 5 FPS, settled sleep 10 FPS. Background throttling keeps the Voice bridge running. Settings persist Low/Balanced/High quality, character placement, scenery/character intensity, petal density, FPS, diagnostics, scheduler intervals and action weights. Secondary motion runs at reduced frequency; unchanged bone/face values skip native writes. Hair uses bounded procedural root motion; full spring simulation remains disabled.
+
+Optional calibrated, articulated short steps and 25° step turns return to the original anchor. [Phase 5](docs/PHASE5.md) explains calibration, conversation holds, deferred scenery changes and the remaining seating/floor-pose limits.
 
 ## Validation and limitations
 
