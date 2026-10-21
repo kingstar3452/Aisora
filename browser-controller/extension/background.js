@@ -1,4 +1,5 @@
 /* This worker never sees ChatGPT authentication or conversation text. */
+let bindingTask = null;
 let captureRms = 0;
 let captureAt = 0;
 let captureTarget = null;
@@ -6,9 +7,9 @@ let captureTask = null;
 let captureGeneration = 0;
 
 async function config() {
-  const data = await chrome.storage.local.get(['pairing', 'startSelector', 'endSelector', 'thinkingSelector']);
-  const session = await chrome.storage.session.get(['targetId', 'targetPath', 'voiceOwner']);
-  return {...data, targetId: session.targetId, targetPath: session.targetPath, voiceOwner: session.voiceOwner};
+  const data = await chrome.storage.local.get(['pairing', 'startSelector', 'endSelector', 'thinkingSelector', 'listeningSelector']);
+  const session = await chrome.storage.session.get(['targetId', 'targetPath', 'voiceOwner', 'bindingId', 'projectLabel']);
+  return {...data, targetId: session.targetId, targetPath: session.targetPath, voiceOwner: session.voiceOwner, bindingId: session.bindingId, projectLabel: session.projectLabel};
 }
 async function bridge(path, data) {
   const {pairing} = await config();
@@ -46,7 +47,7 @@ async function startCapture(tabId) {
   try {
     const streamId = await chrome.tabCapture.getMediaStreamId({targetTabId: tabId});
     captureTarget = tabId;
-    const response = await chrome.runtime.sendMessage({destination: 'offscreen', type: 'capture', streamId, tabId});
+    const response = await chrome.runtime.sendMessage({destination: 'offscreen', type: 'capture', streamId, tabId, bindingId: (await config()).bindingId});
     if (!response?.ok) { const e = new Error('Audio capture failed. Return to the selected tab and approve output capture.'); e.code = response?.diagnostic || 'capture_failed'; throw e; }
     if (generation !== captureGeneration) throw new Error('Capture was stopped.');
   } catch (error) {
@@ -62,24 +63,31 @@ async function handle(message, sender) {
   const trustedPopup = sender.url === chrome.runtime.getURL('popup.html');
   const trustedOffscreen = sender.url === chrome.runtime.getURL('offscreen.html');
   const selected = sender.tab?.id === cfg.targetId && sender.url?.startsWith('https://chatgpt.com/') && message.path === cfg.targetPath;
-  if (message.type === 'selected') return {selected, options: {startSelector: cfg.startSelector, endSelector: cfg.endSelector, thinkingSelector: cfg.thinkingSelector}};
+  if (message.type === 'selected') return {selected, options: {startSelector: cfg.startSelector, endSelector: cfg.endSelector, thinkingSelector: cfg.thinkingSelector, listeningSelector: cfg.listeningSelector}};
   if (message.type === 'audio' && trustedOffscreen) {
     const tabId = message.tabId ?? captureTarget;
-    if (!Number.isInteger(cfg.targetId) || tabId !== cfg.targetId) return {ok: false};
+    if (!Number.isInteger(cfg.targetId) || tabId !== cfg.targetId || (cfg.bindingId && message.bindingId !== cfg.bindingId)) return {ok: false};
     // Re-adopt a valid running offscreen meter after service-worker suspension.
     captureTarget = tabId;
     captureRms = Number.isFinite(message.rms) ? Math.min(1, Math.max(0, message.rms)) : 0;
     captureAt = Date.now();
     const diagnostic = ['capture_denied', 'capture_ended', 'capture_failed'].includes(message.diagnostic) ? message.diagnostic : '';
-    await bridge('/v1/audio', {capturing: message.capturing === true, rms: captureRms, ...(diagnostic ? {diagnostic} : {})});
+    await bridge('/v1/audio', {capturing: message.capturing === true, rms: captureRms, ...(cfg.bindingId ? {binding_id: cfg.bindingId} : {}), ...(diagnostic ? {diagnostic} : {})});
     return {ok: true};
   }
   if (message.type === 'tick' && selected) {
     if (message.voice === 'active') await chrome.storage.session.set({voiceOwner: {tabId: cfg.targetId, path: cfg.targetPath}});
-    else if (message.voice === 'inactive' && cfg.voiceOwner?.tabId === cfg.targetId && cfg.voiceOwner?.path === cfg.targetPath) await chrome.storage.session.remove('voiceOwner');
-    return bridge('/v1/poll', {voice: message.voice, activity: message.activity, busy: message.busy, diagnostic: message.diagnostic});
+    else if (message.voice === 'inactive' && !message.busy && cfg.voiceOwner?.tabId === cfg.targetId && cfg.voiceOwner?.path === cfg.targetPath) await chrome.storage.session.remove('voiceOwner');
+    const reply = await bridge('/v1/poll', {voice: message.voice, activity: message.activity, busy: message.busy, diagnostic: message.diagnostic, ...(cfg.bindingId ? {binding_id: cfg.bindingId, project_label: cfg.projectLabel || "Aisora"} : {})});
+    if (reply.command && (reply.command.action === 'start' || reply.command.action === 'toggle'))
+      await chrome.storage.session.set({voiceOwner: {tabId: cfg.targetId, path: cfg.targetPath}});
+    return reply;
   }
-  if (message.type === 'result' && selected) return bridge('/v1/result', {id: message.id, ok: message.ok === true});
+  if (message.type === 'result' && selected) {
+    if (message.ok && message.observedVoice === 'active') await chrome.storage.session.set({voiceOwner: {tabId: cfg.targetId, path: cfg.targetPath}});
+    if (message.ok && message.observedVoice === 'inactive') await chrome.storage.session.remove('voiceOwner');
+    return bridge('/v1/result', {id: message.id, ok: message.ok === true, ...(message.observedVoice ? {observed_voice: message.observedVoice} : {})});
+  }
   if (!trustedPopup) throw new Error('Select this tab in the Aisora extension first.');
   if (message.type === 'pair') {
     const p = message.pairing;
@@ -98,15 +106,9 @@ async function handle(message, sender) {
     return {ok: true};
   }
   if (message.type === 'bind') {
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    if (!tab?.url?.startsWith('https://chatgpt.com/')) throw new Error('Open your existing Aisora Project conversation in this tab first.');
-    const path = new URL(tab.url).pathname;
-    if (cfg.voiceOwner && (cfg.voiceOwner.tabId !== tab.id || cfg.voiceOwner.path !== path))
-      throw new Error('End Voice in the previously selected tab before changing conversations. If it ended manually, clear the stale Voice guard.');
-    if (cfg.targetId !== tab.id || cfg.targetPath !== path) await stopCapture();
-    await chrome.storage.session.set({targetId: tab.id, targetPath: new URL(tab.url).pathname});
-    await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['voice_dom.js', 'content.js']});
-    return {ok: true};
+    if (bindingTask) return bindingTask;
+    bindingTask = bindConversation(message).finally(() => { bindingTask = null; });
+    return bindingTask;
   }
   if (message.type === 'capture') {
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
@@ -121,17 +123,39 @@ async function handle(message, sender) {
   }
   if (message.type === 'status') {
     const state = await bridge('/v1/state');
-    return {...state, guarded: !!cfg.voiceOwner, captureFresh: Date.now() - captureAt < 500};
+    return {...state, guarded: !!cfg.voiceOwner, captureFresh: Date.now() - captureAt < 500, selected: Number.isInteger(cfg.targetId), projectLabel: cfg.projectLabel || "", selectionRequired: !Number.isInteger(cfg.targetId)};
   }
   if (message.type === 'selectors') {
-    await chrome.storage.local.set({startSelector: String(message.start || '').slice(0, 256), endSelector: String(message.end || '').slice(0, 256), thinkingSelector: String(message.thinking || '').slice(0,256)});
+    await chrome.storage.local.set({startSelector: String(message.start || '').slice(0, 256), endSelector: String(message.end || '').slice(0, 256), thinkingSelector: String(message.thinking || '').slice(0,256), listeningSelector: String(message.listening || '').slice(0,256)});
     return {ok: true};
   }
   throw new Error('Unsupported operation');
 }
+async function bindConversation(message) {
+  const cfg = await config();
+  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+  const url = new URL(tab?.url || 'about:blank');
+  if (url.origin !== 'https://chatgpt.com' || !/^\/(?:g\/[^/]+\/)?c\/[^/]+\/?$/.test(url.pathname))
+    throw new Error('Open an existing conversation inside your Aisora Project first. Project/home pages cannot be paired.');
+  const label = String(message.projectLabel || 'Aisora').trim();
+  if (!label || label.length > 64 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Use a short Project label without control characters.');
+  const changed = cfg.targetId !== tab.id || cfg.targetPath !== url.pathname;
+  if (cfg.voiceOwner && (cfg.voiceOwner.tabId !== tab.id || cfg.voiceOwner.path !== url.pathname))
+    throw new Error('End Voice in the previously selected tab before changing conversations. If it ended manually, clear the stale Voice guard.');
+  if (changed && Number.isInteger(cfg.targetId)) {
+    const state = await bridge('/v1/state');
+    if (state.pending || state.voice === 'active') throw new Error('End Voice and wait for pending commands before changing conversations.');
+  }
+  if (changed) await stopCapture();
+  await chrome.storage.session.set({targetId: tab.id, targetPath: url.pathname, projectLabel: label,
+    bindingId: changed || !cfg.bindingId ? crypto.randomUUID() : cfg.bindingId});
+  await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['voice_dom.js', 'content.js']});
+  return {ok: true, projectLabel: label};
+}
 async function sendVoiceCommand(action, cfg) {
   if (!Number.isInteger(cfg.targetId)) throw new Error('Select your existing ChatGPT tab first.');
   if (cfg.voiceOwner && (cfg.voiceOwner.tabId !== cfg.targetId || cfg.voiceOwner.path !== cfg.targetPath)) throw new Error('A previous Voice session may be active. End it manually before starting another.');
+  if (action !== 'end') await chrome.storage.session.set({voiceOwner: {tabId: cfg.targetId, path: cfg.targetPath}});
   return bridge('/v1/command', {action});
 }
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
@@ -148,7 +172,7 @@ chrome.tabs.onRemoved.addListener(async tabId => {
   if (voiceOwner?.tabId === tabId) await chrome.storage.session.remove("voiceOwner");
   if (tabId === targetId) {
     await stopCapture();
-    await chrome.storage.session.remove(['targetId', 'targetPath']);
+    await chrome.storage.session.remove(['targetId', 'targetPath', 'bindingId', 'projectLabel']);
   }
 });
 chrome.tabs.onUpdated.addListener(async (tabId, change) => {
@@ -157,6 +181,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, change) => {
   const url = new URL(change.url);
   if (tabId === targetId && (url.origin !== 'https://chatgpt.com' || url.pathname !== targetPath)) {
     await stopCapture();
-    await chrome.storage.session.remove(['targetId', 'targetPath']);
+    await chrome.storage.session.remove(['targetId', 'targetPath', 'bindingId', 'projectLabel']);
   }
 });

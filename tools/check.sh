@@ -31,4 +31,8 @@ grep -Eq 'PHASE 4 TESTS: [1-9][0-9]* checks; 0 failures' .local/phase4-tests.log
 cat .local/phase5-tests.log
 if grep -Eq 'SCRIPT ERROR|^ERROR:|^FAIL:' .local/phase5-tests.log; then exit 1; fi
 grep -Eq 'PHASE 5 TESTS: [1-9][0-9]* checks; 0 failures' .local/phase5-tests.log
+./tools/run_godot.sh --headless --script res://tests/test_phase6.gd > .local/phase6-tests.log 2>&1
+cat .local/phase6-tests.log
+if grep -Eq 'SCRIPT ERROR|^ERROR:|^FAIL:' .local/phase6-tests.log; then exit 1; fi
+grep -Eq 'PHASE 6 TESTS: [1-9][0-9]* checks; 0 failures' .local/phase6-tests.log
 python3 tests/live_bridge_smoke.py

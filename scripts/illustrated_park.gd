@@ -173,9 +173,13 @@ func resize() -> void:
  var extent: Vector2=get_viewport().get_visible_rect().size
  var margin: float=12. if parallax else 0.
  for picture: TextureRect in [background,incoming]:picture.position=Vector2(-margin,-margin);picture.size=extent+Vector2.ONE*margin*2.
- shadow.size=Vector2(230,48)*character_scale;shadow.position=extent*character_anchor-shadow.size*Vector2(.5,.37)
+ shadow.size=Vector2(230,48)*character_scale;update_character_shadow()
  branches[0].position=Vector2.ZERO;branches[1].position=Vector2(extent.x-340,0)
  petals.material.set_shader_parameter("viewport_size",extent);weather.resize(extent)
+
+func update_character_shadow() -> void:
+ # Motion changes only this contact anchor, not image/particle layout uniforms.
+ shadow.position=get_viewport().get_visible_rect().size*character_anchor-shadow.size*Vector2(.5,.37)
 
 func apply_performance() -> void:
  if petals==null:return

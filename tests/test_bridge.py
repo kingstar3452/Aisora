@@ -110,6 +110,51 @@ class StateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.state.audio({'capturing': False, 'rms': 0, 'diagnostic': 'private free text'})
 
+    def test_selection_nonce_cancels_pending_commands_and_stale_results(self):
+        self.state.poll({'voice': 'inactive', 'binding_id': 'first', 'project_label': 'Aisora'})
+        command_id = self.state.command('start')
+        self.assertIsNone(self.state.poll({'voice': 'inactive', 'binding_id': 'second', 'project_label': 'Aisora'}))
+        self.assertFalse(self.state.snapshot()['pending'])
+        self.assertIn('cancelled', self.state.snapshot()['error'])
+        self.assertFalse(self.state.result({'id': command_id, 'ok': True, 'observed_voice': 'active'}))
+        self.assertEqual(self.state.snapshot()['voice'], 'inactive')
+
+    def test_old_binding_audio_cannot_animate_new_conversation(self):
+        self.state.poll({'voice': 'active', 'binding_id': 'new'})
+        self.state.audio({'binding_id': 'old', 'capturing': True, 'rms': 1.0})
+        self.assertEqual(self.state.snapshot()['rms'], 0)
+        self.state.audio({'binding_id': 'new', 'capturing': True, 'rms': .3})
+        self.assertAlmostEqual(self.state.snapshot()['rms'], .3)
+        self.state.poll({'voice': 'active', 'binding_id': 'next'})
+        self.assertFalse(self.state.snapshot()['capturing'])
+
+    def test_confirmed_result_updates_state_before_next_heartbeat(self):
+        self.state.poll({'voice': 'inactive'})
+        command_id = self.state.command('start')
+        self.state.result({'id': command_id, 'ok': True, 'observed_voice': 'active'})
+        self.assertEqual(self.state.snapshot()['voice'], 'active')
+        self.now += 5
+        self.assertEqual(self.state.snapshot()['voice'], 'unknown')
+        restarted = bridge.BridgeState(lambda: self.now)
+        self.assertFalse(restarted.result({'id': command_id, 'ok': True}))
+        self.assertIsNone(restarted.poll({'voice': 'active', 'binding_id': 'return'}))
+
+    def test_project_metadata_is_bounded_user_selection_not_credential_data(self):
+        self.state.poll({'voice': 'inactive', 'binding_id': 'local-id', 'project_label': 'Aisora'})
+        self.assertEqual(self.state.snapshot()['project_label'], 'Aisora')
+        self.assertTrue(self.state.snapshot()['conversation_selected'])
+        for value in ['x'*65, 'bad\nlabel', {'secret': 'unaccepted'}]:
+            with self.assertRaises(ValueError): self.state.poll({'voice': 'inactive', 'project_label': value})
+        with self.assertRaises(ValueError): self.state.poll({'voice': 'inactive', 'binding_id': '../wrong'})
+        self.now += 5
+        self.assertEqual(self.state.snapshot()['project_label'], '')
+
+    def test_listening_requires_explicit_active_fresh_metadata(self):
+        self.state.poll({'voice': 'active', 'activity': 'listening'})
+        self.assertEqual(self.state.snapshot()['activity'], 'listening')
+        self.state.poll({'voice': 'inactive', 'activity': 'listening'})
+        self.assertEqual(self.state.snapshot()['activity'], 'unknown')
+
 
 class HTTPTests(unittest.TestCase):
     @classmethod

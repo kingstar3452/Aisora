@@ -1,5 +1,7 @@
 extends Node3D
 ## Presentation only: ChatGPT owns the conversation and personality.
+const Personality=preload("res://scripts/personality.gd")
+const Behavior=preload("res://scripts/behavior_scheduler.gd")
 const Character = preload("res://scripts/character_controller.gd")
 const Envelope = preload("res://scripts/audio_envelope.gd")
 const Bridge = preload("res://scripts/bridge_client.gd")
@@ -14,6 +16,15 @@ const AdaptiveQuality=preload("res://scripts/adaptive_quality.gd")
 const WorldCycle = preload("res://scripts/world_cycle.gd")
 const FrameDiagnostics = preload("res://scripts/frame_diagnostics.gd")
 
+var _rest_camera_active: bool=false
+var _rest_camera_base: Transform3D
+var behavior: AisoraBehaviorScheduler=Behavior.new()
+var personality_intensity: float=.55
+var personality_weights: Dictionary=Personality.WEIGHTS.duplicate()
+var last_personality: String=""
+var behavior_status: Label
+var full_body_toggle: CheckButton
+var seat_height_slider: HSlider
 var ground_guide: AisoraGroundGuide
 var show_ground_guide: bool=false
 var ambience: AisoraAmbientAudio
@@ -67,6 +78,8 @@ var bridge: AisoraBridgeClient
 var camera: Camera3D
 var light: DirectionalLight3D
 var settings: ConfigFile = ConfigFile.new()
+var settings_backup_path: String=""
+var _settings_writable: bool=true
 var settings_path: String = "user://settings.cfg"
 var state_label: Label
 var connection_label: Label
@@ -118,6 +131,7 @@ var _diagnostic_clock: float = 0.0
 
 func _ready() -> void:
 	settings.load(settings_path)
+	_backup_phase5_settings()
 	fps_limit = clampi(int(settings.get_value("display", "fps", 30)), 15, 60)
 	zoom = clampf(float(settings.get_value("display", "distance", 3.2)), 1.6, 4.0)
 	framing = clampf(float(settings.get_value("display", "height", 0.86)), 0.7, 1.5)
@@ -149,6 +163,7 @@ func _ready() -> void:
 	_build_stage()
 	character = Character.new()
 	add_child(character)
+	character.ground.turn_degrees=clampf(float(settings.get_value("ground","turn_degrees",25.)),15.,90.)
 	reduced_renderer=ReducedRenderer.new();add_child(reduced_renderer);reduced_renderer.setup(camera)
 	_apply_performance_settings()
 	ambience=AmbientAudio.new();add_child(ambience);ambience.level=ambience_level
@@ -164,6 +179,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_update_ground_guide)
 	illustrated.scenery_changed.connect(_world_image_changed)
 	_update_world(true)
+	_apply_world_lighting()
 	ui_layer.visible=not clean_presentation
 	# Save only references for migration, never rewrite the existing sunset bitmap.
 	if settings.has_section_key("environment","background_path") and not settings.has_section_key("world","slot_paths"):_save()
@@ -218,7 +234,7 @@ func _build_stage() -> void:
 	add_child(illustrated)
 
 func _update_camera() -> void:
-	if character!=null and character.ground.active:return
+	if character!=null and (character.ground.active or character.body.active):return
 	camera.position = Vector3(0.0, framing + 0.10, zoom)
 	camera.look_at(Vector3(0.0, framing, 0.0))
 	_place_character()
@@ -376,7 +392,7 @@ func _build_settings(root: Control) -> void:
 	weight_control.value_changed.connect(func(value: float): action_weights[ActionCatalog.IDS[gesture_select.selected]]=value; _apply_performance_settings(); _save())
 	box.add_child(weight_control)
 	action_status=_label("15 standing actions + standing sleep/wake.
-Walking, full turns, sitting, lying and rising from the floor are unavailable.",12,Color("b9c8d9"))
+Use the Phase 6 controls below for calibrated walking, seat/floor rest and personality poses. Unrestricted roaming and 360° turns remain unsupported.",12,Color("b9c8d9"))
 	action_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(action_status)
 	_build_ground_settings(box)
 	_build_scenery_settings(box,root)
@@ -431,6 +447,10 @@ func _slider(box: VBoxContainer, title: String, minimum: float, maximum: float, 
 	return slider
 
 func _save() -> void:
+	if not _settings_writable:return
+	settings.set_value("phase6","version",1)
+	settings.set_value("behavior","enabled",behavior.enabled);settings.set_value("behavior","interval_min",behavior.interval_min);settings.set_value("behavior","interval_max",behavior.interval_max);settings.set_value("behavior","weights",behavior.weights)
+	settings.set_value("personality","intensity",personality_intensity);settings.set_value("personality","weights",personality_weights)
 	settings.set_value("world","ambience",ambience_level)
 	settings.set_value("ground","automatic",ground_auto)
 	settings.set_value("ground","regions",ground_regions)
@@ -507,23 +527,27 @@ func _process(delta: float) -> void:
 	character.motion.conversation_active=voice_active or bridge.session_may_be_active or bridge.command_pending() or envelope.speaking or manual_state in [1,2,3]
 	ambience.advance(illustrated.displayed_slot,weather_mode,character.motion.conversation_active,delta)
 	character.ground.paused=character.motion.conversation_active
-	if _was_stepping and not character.ground.active:
+	_update_rest_camera()
+	if _was_stepping and not character.ground.active and not character.body.active:
 		_update_camera();_world_pending=true
 		if ground_status!=null:ground_status.text=character.ground.message
-	_was_stepping=character.ground.active
+	_was_stepping=character.ground.active or character.body.active
 	_ground_wait-=delta
-	if ground_auto and _ground_wait<=0. and _idle_duration>60. and manual_state<0 and character.state==Character.State.IDLE and not character.motion.conversation_active and character.motion.gesture.is_empty() and illustrated.displayed_slot in ["morning","daytime"] and illustrated.fade_progress>=1. and illustrated._worker==null:
+	if ground_auto and not behavior.enabled and character.ground.calibrated and not _world_pending and not character.body.active and _ground_wait<=0. and _idle_duration>60. and manual_state<0 and character.state==Character.State.IDLE and not character.motion.conversation_active and character.motion.gesture.is_empty() and illustrated.displayed_slot in ["morning","daytime"] and illustrated.fade_progress>=1. and illustrated._worker==null:
 		if character.ground.play("pace",character):_ground_wait=character.rng.randf_range(120.,240.)
 	_idle_duration=0. if character.motion.conversation_active or manual_state>=0 else _idle_duration+delta
 	var next: int = manual_state
 	if next < 0:
 		next = Character.State.TALKING if envelope.speaking else ((Character.State.THINKING if bridge.state.get("activity","")=="thinking" else Character.State.LISTENING) if voice_active else Character.State.IDLE)
-	if manual_state<0 and not character.motion.conversation_active and night_rest and illustrated.displayed_slot=="nighttime" and _idle_duration>=rest_after:next=Character.State.SLEEPING
+	if manual_state<0 and not character.body.active and not character.motion.conversation_active and night_rest and illustrated.displayed_slot=="nighttime" and _idle_duration>=rest_after:next=Character.State.SLEEPING
 	character.set_state(next as Character.State)
 	if _morning_stretch and next==Character.State.IDLE and not character.motion.conversation_active and character.motion.sleep_amount<.01 and character.motion.gesture.is_empty() and not character.ground.active:
 		character.play_gesture("stretch");_morning_stretch=false
-	if character.ground.active:
-		illustrated.character_anchor=camera.unproject_position(character.ground.shadow_position())/get_viewport().get_visible_rect().size;illustrated.resize()
+	if character.ground.active or character.body.active:
+		illustrated.character_anchor=camera.unproject_position(character.ground.shadow_position() if character.ground.active else character.body.origin)/get_viewport().get_visible_rect().size;illustrated.update_character_shadow()
+	if behavior.enabled:
+		var behavior_action: String=behavior.tick(delta,{"voice":character.motion.conversation_active,"ready":manual_state<0 and character.state==Character.State.IDLE and not _world_pending and not character.ground.active and not character.body.active and character.motion.gesture.is_empty() and illustrated.fade_progress>=1. and illustrated._worker==null and performance.focused and not performance.minimized,"ground":character.ground.calibrated,"rest":character.body.enabled,"period":cycle.local_slot()})
+		if not behavior_action.is_empty():_perform_behavior(behavior_action)
 	performance.fps_limit = fps_limit
 	Engine.max_fps = performance.frame_cap(character.motion.is_resting())
 	var hidden: bool = not performance.focused or performance.minimized
@@ -548,9 +572,11 @@ func _process(delta: float) -> void:
 	if not settings_panel.visible:return
 	var activity: String = "minimized" if performance.minimized else ("inactive" if not performance.focused else "foreground")
 	performance_label.text = "%d FPS cap · %s" % [Engine.max_fps, activity]
-	state_label.text = Character.STATE_NAMES[character.state] + ("  ·  TEST" if manual_state >= 0 or demo else "")
+	state_label.text = Character.STATE_NAMES[character.state] + (" · Full-body " + character.body.desired.replace("_", " ") if character.body.active else "") + ("  ·  TEST" if manual_state >= 0 or demo else "")
 	var connected: bool = bool(bridge.state.get("connected", false))
 	connection_label.text=("Bridge online" if bridge.age<1.5 else "Bridge offline")+(" · Browser connected" if connected else " · Browser disconnected")+" · Voice "+str(bridge.state.get("voice","unknown"))
+	connection_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	if not str(bridge.state.get("project_label","")).is_empty():connection_label.text+=" · Project "+str(bridge.state.project_label)+" (user-selected)"
 	detail_label.text = str(bridge.state.get("error", ""))
 	settings_button.tooltip_text=detail_label.text
 	settings_button.text="Settings · issue" if not detail_label.text.is_empty() else "Settings · Tab"
@@ -598,6 +624,7 @@ func _apply_quality() -> void:
 func _apply_performance_settings() -> void:
 	if reduced_renderer!=null:reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
 	if character != null:
+		character.motion.personality_intensity=personality_intensity
 		character.motion.set_context(illustrated.displayed_slot if illustrated!=null else "sunset",weather_mode)
 		character.motion.configure_scheduler(idle_interval_min,idle_interval_max,scheduler_enabled,action_weights)
 		character.animation_intensity = animation_intensity
@@ -644,7 +671,7 @@ func _apply_stage_mode() -> void:
 	_place_character()
 
 func _place_character() -> void:
-	if character!=null and character.ground.active:return
+	if character!=null and (character.ground.active or character.body.active):return
 	if character==null or camera==null or illustrated==null:return
 	character.scale=Vector3.ONE*(character_scale if stage_mode==0 else 1.0)
 	character.position=Vector3.ZERO
@@ -654,7 +681,7 @@ func _place_character() -> void:
 		var direction: Vector3=camera.project_ray_normal(pixel)
 		if absf(direction.z)>0.001:character.position=origin-direction*(origin.z/direction.z)
 	illustrated.character_anchor=character_anchor;illustrated.character_scale=character_scale;illustrated.resize()
-	if character.ground!=null and not character.ground.active:character.ground.reset_origin(character)
+	if character.ground!=null and not character.ground.active and not character.body.active:character.ground.reset_origin(character)
 
 func _image_selected(path: String) -> void:
 	var loaded: bool=illustrated.load_local(path,true) if _choose_overlay else illustrated.assign_time_image(_choose_time_slot,path)
@@ -672,7 +699,10 @@ func _build_scenery_settings(box: VBoxContainer, root: Control) -> void:
 	scenery_select.add_item("Illustrated background + 3D Aisora")
 	scenery_select.add_item("Original 3D park fallback")
 	scenery_select.select(stage_mode)
-	scenery_select.item_selected.connect(func(index: int): stage_mode=index; _apply_stage_mode(); _save())
+	scenery_select.item_selected.connect(func(index: int):
+		if character.ground.active or character.body.active:scenery_select.select(stage_mode);return
+		stage_mode=index;_apply_stage_mode();_save()
+	)
 	box.add_child(scenery_select)
 	image_status = _label(illustrated.message,12,Color("a8d4c5"))
 	image_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -696,7 +726,7 @@ func _build_scenery_settings(box: VBoxContainer, root: Control) -> void:
 	box.add_child(parallax_toggle)
 
 func _preview_action(name: String) -> bool:
-	if character.ground.active or bridge.state.get("voice","")=="active" or bridge.session_may_be_active or bridge.command_pending() or envelope.speaking:
+	if character.ground.active or character.body.active or bridge.state.get("voice","")=="active" or bridge.session_may_be_active or bridge.command_pending() or envelope.speaking:
 		action_status.text="Action preview paused during Voice. Your conversation keeps control."
 		return false
 	_select_state(1);character.set_state(Character.State.IDLE);character.motion.conversation_active=false
@@ -705,6 +735,12 @@ func _preview_action(name: String) -> bool:
 	return ok
 
 func _load_world_settings() -> void:
+	behavior.enabled=bool(settings.get_value("behavior","enabled",false));behavior.interval_min=clampf(float(settings.get_value("behavior","interval_min",45.)),15.,300.);behavior.interval_max=clampf(float(settings.get_value("behavior","interval_max",120.)),behavior.interval_min,600.)
+	var saved_behavior: Variant=settings.get_value("behavior","weights",{})
+	if saved_behavior is Dictionary:behavior.weights.merge(saved_behavior,true)
+	var saved_personality: Variant=settings.get_value("personality","weights",{})
+	if saved_personality is Dictionary:personality_weights.merge(saved_personality,true)
+	personality_intensity=clampf(float(settings.get_value("personality","intensity",.55)),0.,1.)
 	ambience_level=clampf(float(settings.get_value("world","ambience",0.)),0,.25)
 	ground_auto=bool(settings.get_value("ground","automatic",false))
 	ground_regions=settings.get_value("ground","regions",{}).duplicate() if settings.get_value("ground","regions",{}) is Dictionary else {}
@@ -745,7 +781,8 @@ func _set_clean(on: bool,save_value: bool=true) -> void:
 func _update_world(force: bool=false) -> void:
 	if illustrated==null:return
 	var requested: String="rain" if weather_mode in ["light_rain","heavy_rain"] else cycle.local_slot()
-	if character!=null and character.ground.active:
+	if character!=null and (character.ground.active or character.body.active):
+		if character.body.active and (force or requested!=illustrated.requested_slot):character.body.play("stand",character)
 		_world_pending=_world_pending or force or requested!=illustrated.requested_slot
 		illustrated.message="Scene change waits for the current short step sequence to return home." if requested!=illustrated.requested_slot else illustrated.message
 		_refresh_world_labels();return
@@ -840,17 +877,20 @@ func _load_ground_region() -> void:
 	if character==null:return
 	var region: Dictionary=ground_regions.get(illustrated.displayed_slot,{})
 	character.ground.calibrated=bool(region.get("enabled",false)) and str(region.get("path",""))==illustrated.displayed_path and not illustrated.displayed_path.is_empty()
-	character.ground.width=clampf(float(region.get("width",.8)),.6,1.2);character.ground.depth=clampf(float(region.get("depth",.9)),.6,1.0)
+	character.ground.width=clampf(float(region.get("width",.8)),.6,4.);character.ground.depth=clampf(float(region.get("depth",.9)),.6,4.)
+	character.body.enabled=character.ground.calibrated and bool(region.get("rest_enabled",false));character.body.seat_height=clampf(float(region.get("seat_height",.48)),.48,.60)
+	if full_body_toggle!=null:full_body_toggle.set_pressed_no_signal(character.body.enabled)
+	_sync_slider(seat_height_slider,character.body.seat_height)
 	if ground_calibration!=null:ground_calibration.set_pressed_no_signal(character.ground.calibrated)
 	_sync_slider(ground_width_slider,character.ground.width);_sync_slider(ground_depth_slider,character.ground.depth)
 	_update_ground_guide()
 	if ground_status!=null:ground_status.text=("Calibrated for "+illustrated.displayed_slot if character.ground.calibrated else "Steps disabled until this image's clear ground is calibrated. No painted-object collision map is inferred.")
 
 func _store_ground_region() -> void:
-	ground_regions[illustrated.displayed_slot]={"enabled":character.ground.calibrated,"path":illustrated.displayed_path,"width":character.ground.width,"depth":character.ground.depth};_save()
+	ground_regions[illustrated.displayed_slot]={"enabled":character.ground.calibrated,"path":illustrated.displayed_path,"width":character.ground.width,"depth":character.ground.depth,"rest_enabled":character.body.enabled,"seat_height":character.body.seat_height};_save()
 
 func _preview_steps(name: String) -> bool:
-	if bridge.command_pending() or bridge.session_may_be_active or character.motion.conversation_active or illustrated.fade_progress<1. or illustrated._worker!=null:return false
+	if character.body.active or bridge.command_pending() or bridge.session_may_be_active or character.motion.conversation_active or illustrated.fade_progress<1. or illustrated._worker!=null:return false
 	var result: bool=character.ground.play(name,character)
 	if ground_status!=null:ground_status.text=character.ground.message
 	return result
@@ -860,25 +900,111 @@ func _build_ground_settings(box: VBoxContainer) -> void:
 	_check(box,"Show virtual ground boundary",false,func(on: bool):show_ground_guide=on;_update_ground_guide())
 	ground_status=_label("",12);ground_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(ground_status)
 	ground_calibration=_check(box,"I calibrated clear ground for this image",false,func(on: bool):
+		if character.ground.active or character.body.active:ground_calibration.set_pressed_no_signal(character.ground.calibrated);return
 		if illustrated.displayed_path.is_empty():ground_calibration.set_pressed_no_signal(false);return
 		character.ground.calibrated=on;_ground_wait=120.;_store_ground_region();_load_ground_region()
 	)
-	ground_width_slider=_slider(box,"Clear ground width (meters)",.6,1.2,.02,.8,func(value: float):character.ground.width=value;_store_ground_region();_update_ground_guide())
-	ground_depth_slider=_slider(box,"Clear ground depth (meters)",.6,1.,.02,.9,func(value: float):character.ground.depth=value;_store_ground_region();_update_ground_guide())
+	ground_width_slider=_slider(box,"Clear ground width (meters)",.6,4.,.02,.8,func(value: float):
+		if character.ground.active or character.body.active:_sync_slider(ground_width_slider,character.ground.width);return
+		character.ground.width=value;_store_ground_region();_update_ground_guide())
+	ground_depth_slider=_slider(box,"Clear ground depth (meters)",.6,4.,.02,.9,func(value: float):
+		if character.ground.active or character.body.active:_sync_slider(ground_depth_slider,character.ground.depth);return
+		character.ground.depth=value;_store_ground_region();_update_ground_guide())
 	_check(box,"Occasional calibrated steps when idle",ground_auto,func(on: bool):ground_auto=on;_ground_wait=120.;_save())
 	var actions: OptionButton=OptionButton.new()
-	for action: String in ["Short steps forward + return","Short steps backward + return","Short forward/back pacing","Step turn left + return","Step turn right + return"]:actions.add_item(action)
+	for action: String in ["Short steps forward + return","Short steps backward + return","Short forward/back pacing","Step turn left + return","Step turn right + return","Walk forward + return","Walk backward + return","Walk sideways left + return","Walk sideways right + return"]:actions.add_item(action)
 	box.add_child(actions)
-	var preview: Button=Button.new();preview.text="Preview calibrated short steps";preview.pressed.connect(func():_preview_steps(character.ground.ACTIONS[actions.selected]));box.add_child(preview)
+	var preview: Button=Button.new();preview.text="Preview calibrated short steps";preview.pressed.connect(func():_preview_steps(character.ground.SUPPORTED_ACTIONS[actions.selected]));box.add_child(preview)
 	_check(box,"Optional standing night rest when idle",night_rest,func(on: bool):night_rest=on;_idle_duration=0.;_save())
 	_slider(box,"Night rest after idle seconds",30,1800,30,rest_after,func(value: float):rest_after=value;_save())
+	_build_phase6_settings(box)
 	_load_ground_region()
 
 func _update_ground_guide() -> void:
 	if ground_guide==null or character==null:return
 	ground_guide.show_region(camera,character.ground.origin,character.ground.width,character.ground.depth,show_ground_guide and settings_panel!=null and settings_panel.visible and not clean_presentation and stage_mode==0)
+	ground_guide.show_seat(camera,character.ground.origin,character.body.seat_height,character.scale.x,character.body.enabled and ground_guide.visible)
 
 func _sync_slider(slider: HSlider,value: float) -> void:
 	if slider==null:return
 	slider.set_value_no_signal(value)
 	var label: Label=slider.get_meta("caption");label.text="%s · %.2f"%[slider.get_meta("title"),value]
+
+func _perform_behavior(action: String,manual: bool=false) -> bool:
+	if action in ["stand","wake"]:return character.body.play(action,character)
+	if manual and character.body.active and action in character.body.ACTIONS and not character.motion.conversation_active and not bridge.command_pending() and not bridge.session_may_be_active:
+		return character.body.play(action,character)
+	if character.motion.conversation_active or bridge.command_pending() or bridge.session_may_be_active or character.ground.active or character.body.active or illustrated.fade_progress<1. or illustrated._worker!=null:return false
+	var success: bool=false
+	if action=="personality":
+		var total: float=0.
+		var candidates: Array[String]=[]
+		for name: String in Personality.IDS:
+			if float(personality_weights.get(name,0.))>0.:candidates.append(name)
+		if candidates.size()>1:candidates.erase(last_personality)
+		for name: String in candidates:total+=clampf(float(personality_weights.get(name,0.)),0.,5.)
+		var choice: float=character.rng.randf()*total
+		if total<=0.:return false
+		for name: String in candidates:
+			choice-=clampf(float(personality_weights.get(name,0.)),0.,5.)
+			if choice<0.:action=name;break
+	if action in Personality.IDS or action=="stretch":
+		success=character.play_gesture(action)
+		if success and action in Personality.IDS:last_personality=action
+	elif action in character.body.ACTIONS:
+		success=character.body.play(action,character)
+		if success and not manual:character.body.hold_seconds=behavior.rng.randf_range(45.,90.)
+	else:success=character.ground.play(action,character)
+	if behavior_status!=null:behavior_status.text=("Selected: " if success else "Unavailable here: ")+action.replace("_"," ")+("" if success else " · check floor bounds, calibration and Voice status")
+	return success
+
+func _build_phase6_settings(box: VBoxContainer) -> void:
+	box.add_child(_label("Phase 6 · full-body & personality",18))
+	behavior_status=_label("No emotion inference. Voice always has priority.",12);behavior_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(behavior_status)
+	full_body_toggle=_check(box,"Enable calibrated virtual seat / floor rest",false,func(on: bool):
+		if character.body.active:full_body_toggle.set_pressed_no_signal(character.body.enabled);return
+		character.body.enabled=on;_store_ground_region()
+	)
+	seat_height_slider=_slider(box,"Virtual seat surface height (meters)",.48,.60,.01,.48,func(value: float):
+		if character.body.active:_sync_slider(seat_height_slider,character.body.seat_height);return
+		character.body.seat_height=value;_store_ground_region()
+	)
+	_slider(box,"Step-turn angle (degrees)",15,90,5,character.ground.turn_degrees,func(value: float):character.ground.turn_degrees=value;settings.set_value("ground","turn_degrees",value);_save())
+	_check(box,"Autonomous major actions · opt-in",behavior.enabled,func(on: bool):behavior.enabled=on;behavior.wait=behavior.interval_min;_save())
+	_slider(box,"Major action interval minimum (seconds)",15,300,5,behavior.interval_min,func(value: float):behavior.interval_min=value;behavior.interval_max=maxf(value,behavior.interval_max);_save())
+	_slider(box,"Major action interval maximum (seconds)",15,600,5,behavior.interval_max,func(value: float):behavior.interval_max=maxf(behavior.interval_min,value);_save())
+	_slider(box,"Personality face intensity",0,1,.05,personality_intensity,func(value: float):personality_intensity=value;character.motion.personality_intensity=value;_save())
+	var options: OptionButton=OptionButton.new()
+	for title: String in Personality.LABELS:options.add_item(title)
+	for title: String in ["Sit on calibrated virtual seat","Lie down on calibrated floor","Sleep on calibrated floor","Stand / wake and return"]:options.add_item(title)
+	box.add_child(options)
+	var preview: Button=Button.new();preview.text="Play selected Phase 6 action"
+	preview.pressed.connect(func():
+		if manual_state>=0 and not (manual_state in [1,2,3]):_select_state(0);character.set_state(Character.State.IDLE)
+		var action: String=Personality.IDS[options.selected] if options.selected<10 else ["sit","lie_down","sleep","stand"][options.selected-10]
+		_perform_behavior(action,true)
+	);box.add_child(preview)
+	var stop: Button=Button.new();stop.text="Return to standing / wake";stop.pressed.connect(func():character.body.play("stand",character));box.add_child(stop)
+	for name: String in behavior.DEFAULT_WEIGHTS:
+		_slider(box,"Major weight · "+name.replace("_"," "),0,5,.25,float(behavior.weights[name]),func(value: float):behavior.weights[name]=value;_save())
+	for name: String in Personality.IDS:
+		_slider(box,"Personality weight · "+name.replace("_"," "),0,5,.25,float(personality_weights[name]),func(value: float):personality_weights[name]=value;_save())
+
+func _update_rest_camera() -> void:
+	if character.body.active:
+		if not _rest_camera_active:_rest_camera_base=camera.transform;_rest_camera_active=true
+		var amount: float=smoothstep(0.,1.,character.body.recline)
+		var orbit: Basis=Basis(Vector3.UP,deg_to_rad(60.)*amount)
+		var pivot: Vector3=character.ground.origin+Vector3(0,.45*character.scale.x,0)
+		camera.transform=Transform3D(orbit*_rest_camera_base.basis*Basis(Vector3.RIGHT,-.08*amount),pivot+orbit*(_rest_camera_base.origin-pivot))
+		if reduced_renderer!=null:reduced_renderer.sync_camera()
+	elif _rest_camera_active:
+		camera.transform=_rest_camera_base;_rest_camera_active=false
+		if reduced_renderer!=null:reduced_renderer.sync_camera()
+
+func _backup_phase5_settings() -> void:
+	if not FileAccess.file_exists(settings_path) or settings.has_section_key("phase6","version"):return
+	settings_backup_path=settings_path.get_basename()+"-before-phase6.cfg"
+	if FileAccess.file_exists(settings_backup_path):return
+	_settings_writable=DirAccess.copy_absolute(ProjectSettings.globalize_path(settings_path),ProjectSettings.globalize_path(settings_backup_path))==OK
+	if not _settings_writable:push_warning("Previous settings could not be backed up. Preferences will remain in memory; the existing file is preserved.")

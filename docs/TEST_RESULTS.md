@@ -1,6 +1,39 @@
 # Implementation and validation record
 
-## Phase 5: current validation
+## Phase 6: current validation
+
+Godot **4.6.3 official / Compatibility**, Linux cloud, **21 October 2026**. The core runner passes **505 checks/tests**: 18 Python, 28 JavaScript, 35 original actual-model/state, 58 Phase 2, 38 Phase 3, 117 Phase 4, 93 Phase 5, **103 Phase 6** and 15 live local Godot/HTTP fixture checks. Script imports and JavaScript syntax pass. The original VRM SHA-256 remains `46f3ec42b2dca1558b936f37dc0927af906e294f278cf756c0c329a1d23dab68`; Phase 5 supplied backgrounds are unchanged.
+
+The new actual-rig suite exercises four articulated walking directions, stepped 90° turns, planted-foot error below 15 mm, lifted swing feet, bounded continuous root motion and return; supported seat heights, sit/recline/sleep/reverse contacts; sampled CPU-skinned body/hair/face floor and boundary envelopes; restoration of original clothing attachments; sleeping shifts and Voice get-up; all ten personality gestures at maximum intensity, coarse limb/body proxies, morph cleanup and silent speech-mouth ownership; local preference persistence, byte-preserving one-time settings backup, zero/single weighted choices and cooldowns. Floor samples use an 8 mm tolerance, not full continuous triangle collision detection.
+
+A **one-hour simulated session on the actual VRM** advances 54,000 ticks at 15 Hz, with recurring simulated conversations and morning/night context. Seeded output is **122 major selections, 66 movement, 23 personality and 16 rest starts**, including all four walking directions and floor sleep. No new action begins during a call; the character finishes at the original anchor. This is accelerated simulation, not an hour of target-device rendering or authenticated Voice.
+
+Separate Xvfb/Mesa real OpenGL suites pass **70 checks**: 24 new Phase 6, 26 retained Phase 5, 15 retained Phase 4 and 5 retained Phase 3. They cover full-body framing and exact standing-camera restoration, native versus transparent reduced-resolution rendering, simulated Voice speaking/listening during get-up, all three presets seated, calibration/clean mode, narrow-window settings and deferred rain image changes, plus retained time/weather/image/aspect/mouth/shadow/fallback behavior. The expanded preview label initially pushed the settings panel beyond the window; shortening it fixes the retained regression test. The Phase 6 check now verifies both scrollbar page and panel edge.
+
+The real-Chromium simulated-page test passes two start/end cycles, unchanged conversation, no dictation, visible Thinking/permission markers, ambiguous-control refusal and navigation disconnect. Worker/bridge tests additionally cover Project-label validation, conversation-only selection, concurrent binding, browser-session reselection, pending-call guards, confirmed-state ownership, stale-command cancellation, binding-tagged late-audio rejection and listening-marker priority. Live HTTP tests retain stale sample handling, duplicate-start refusal and repair after 401 while render polling is capped. Browser transport/page/audio are fixtures: **native authenticated ChatGPT Voice is not certified**.
+
+Multi-angle captures sample all ten authored personality actions and eight transition times for sitting, reclining and sleeping, plus returned poses. Four-direction walking and retained ground actions have three-angle entrance/swing/return sheets. These are actual imported rig renders, not generated concept art. The visible lying posture is a simple supine bent-knee rest; no side-lying, polished mocap, arbitrary chair matching or full cloth collision is claimed. See [Phase 6 controls and limitations](PHASE6.md).
+
+An actual unsigned **Intel x86_64 macOS app ZIP** and Linux release executable/PCK export successfully. The export helper checks ZIP integrity, app identity, resource-pack presence and the x86_64 Mach-O executable, then adds the exact engine notices and SHA-256 sidecar. An isolated editor-based pack player decodes all five supplied images and instantiates the original rig/main scene from both the Linux PCK and the resource pack extracted from the final Mac app ZIP. The Linux release executable boots/renders using its own pack. Short clean-settings standalone versus editor-player FPS observations are recorded with the severe initial standalone stall retained; they do not prove sustained pacing. The Mac executable is **not run on Linux**, and is not signed or notarized.
+
+Uncapped before/after results in [PERFORMANCE_PHASE6.md](PERFORMANCE_PHASE6.md) include all runs and show **slower Phase 6 wall frames** on this software renderer despite unchanged draws/primitives/video accounting and small added script time. Stage microbenchmarks and exported-player observations are separate from iMac performance. No sustained 30 FPS or thermal claim is made. Native Mac window focus/minimize/file dialogs, unsigned app launch/Gatekeeper, real microphone/output capture, browser Voice DOM compatibility and long-running Intel GPU performance remain local acceptance items.
+
+```sh
+./tools/check.sh
+# Display required; Xvfb/software OpenGL verifies functionality, not Intel Mac speed:
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase6.gd
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase5.gd
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase4.gd
+./tools/run_godot.sh --audio-driver Dummy --script res://tests/render_phase3.gd
+python3 tests/browser_smoke.py --chromium /usr/bin/chromium
+./tools/run_godot.sh --audio-driver Dummy --script res://tools/capture_phase6.gd
+./tools/run_godot.sh --audio-driver Dummy --script res://tools/capture_ground.gd
+./tools/run_godot.sh --headless --script res://tools/audit_sheets.gd
+./tools/run_godot.sh --headless --script res://tools/profile_phase6.gd
+```
+
+
+## Phase 5: historical validation
 
 Godot **4.6.3 official, Compatibility**, Linux cloud, 18 October 2026. The final core runner passes **389 checks/tests**: 13 Python, 20 JavaScript, 35 original model/state, 58 retained Phase 2, 38 retained Phase 3, 117 retained Phase 4, **93 Phase 5** and 15 live Godot/HTTP integration checks. A clean staged-source archive independently imports from scratch and passes the full runner. The VRM SHA-256 remains `46f3ec42b2dca1558b936f37dc0927af906e294f278cf756c0c329a1d23dab68`. Bridge/extension source is unchanged in this phase.
 

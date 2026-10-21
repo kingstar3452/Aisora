@@ -1,6 +1,6 @@
 /* Isolated extension world: no cookies, network interception, React internals, or transcripts. */
 (() => {
-  const version = '0.2.0';
+  const version = '0.3.0';
   if (globalThis.__aisoraInstalled === version) return;
   globalThis.__aisoraStop?.();
   globalThis.__aisoraInstalled = version;
@@ -37,7 +37,8 @@
     };
     return {
       permission: visible('[data-testid="voice-microphone-error"], [aria-label="Microphone permission denied"], [aria-label="Microphone access blocked"]'),
-      thinking: visible(options.thinkingSelector || '[data-testid="voice-thinking-indicator"]')
+      thinking: visible(options.thinkingSelector || '[data-testid="voice-thinking-indicator"]'),
+      listening: visible(options.listeningSelector || '[data-testid="voice-listening-indicator"], [data-testid="voice-user-speaking-indicator"]')
     };
   }
   const inspect = () => AisoraVoiceDOM.inspect(collect(), markers());
@@ -56,7 +57,7 @@
       } while (Date.now() < deadline);
     } catch { /* Browser permissions/UI changes require the user, never bypass them. */ }
     finally {
-      await chrome.runtime.sendMessage({type: 'result', path: location.pathname, id: command.id, ok}).catch(() => {});
+      await chrome.runtime.sendMessage({type: 'result', path: location.pathname, id: command.id, ok, observedVoice: ok ? inspect().voice : 'unknown'}).catch(() => {});
       busy = false;
     }
   }

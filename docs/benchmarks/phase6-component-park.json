@@ -1,0 +1,88 @@
+{
+  "method": {
+    "runs": 1,
+    "measured_frames": 90,
+    "warmup_frames": 60,
+    "state": "idle",
+    "part": "park",
+    "lp_num_threads": "2",
+    "uncapped": true,
+    "resolution": "960x600",
+    "ui_and_network": false,
+    "summary": "Median of per-run statistics, not pooled frame percentiles."
+  },
+  "medians": {
+    "phase5-idle": {
+      "render": {
+        "mean_ms": 8.44336666666667,
+        "p50_ms": 7.976,
+        "p95_ms": 11.309
+      }
+    },
+    "phase6-low-idle": {
+      "render": {
+        "mean_ms": 24.4887888888889,
+        "p50_ms": 11.755,
+        "p95_ms": 134.729
+      }
+    }
+  },
+  "samples": [
+    {
+      "action": "",
+      "bone_writes": 0,
+      "draw_calls": 3.0,
+      "engine": "4.6.3-stable (official)",
+      "face_writes": 0,
+      "frame": {
+        "mean_ms": 8.44336666666667,
+        "p50_ms": 7.976,
+        "p95_ms": 11.309
+      },
+      "label": "phase5-idle-1",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "park",
+      "primitives": 40.0,
+      "process_ms": 14.077,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "idle",
+      "static_memory_bytes": 44959790.0,
+      "video_memory_bytes": 266513723.0,
+      "repetition": 1,
+      "case": "phase5-idle"
+    },
+    {
+      "action": "",
+      "bone_writes": 0,
+      "draw_calls": 3.0,
+      "engine": "4.6.3-stable (official)",
+      "face_writes": 0,
+      "frame": {
+        "mean_ms": 24.4887888888889,
+        "p50_ms": 11.755,
+        "p95_ms": 134.729
+      },
+      "label": "phase6-low-idle-1",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "park",
+      "primitives": 40.0,
+      "process_ms": 383.679,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "idle",
+      "static_memory_bytes": 46658173.0,
+      "video_memory_bytes": 266513723.0,
+      "repetition": 1,
+      "case": "phase6-low-idle"
+    }
+  ]
+}

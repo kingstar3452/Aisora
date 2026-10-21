@@ -1,0 +1,26 @@
+{
+  "action": "sleep",
+  "bone_writes": 13632,
+  "draw_calls": 22.0,
+  "engine": "4.6.3-stable (official)",
+  "face_writes": 68,
+  "frame": {
+    "mean_ms": 20.7153222222222,
+    "p50_ms": 19.215,
+    "p95_ms": 30.474
+  },
+  "label": "phase6-sleep",
+  "mode": "render",
+  "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+  "part": "full",
+  "primitives": 23850.0,
+  "process_ms": 37.815,
+  "quality": 0,
+  "render_scale": 1.0,
+  "rendering_method": "gl_compatibility",
+  "resolution": "960x600",
+  "scene": "supplied sunset",
+  "state": "idle",
+  "static_memory_bytes": 47296541.0,
+  "video_memory_bytes": 264383531.0
+}

@@ -1,5 +1,7 @@
 # Troubleshooting
 
+For current full-body calibration, personality controls, Project-tab selection and rollback, see [Phase 6 troubleshooting](TROUBLESHOOTING_PHASE6.md).
+
 | Symptom | Action |
 | --- | --- |
 | Godot cannot load VRM / character absent | Use Godot 4.6.3 standard, enable both bundled editor plugins, reimport `assets/character/aisora.vrm`. Keep addon directory names unchanged. Inspect the Godot Output/Debugger for import errors. |

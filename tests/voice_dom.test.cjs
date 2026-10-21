@@ -48,3 +48,10 @@ test('permission errors refuse automation and thinking requires active Voice', (
   assert.notEqual(inspect([button('Start voice')],{thinking:true}).activity,'thinking');
   assert.equal(inspect([button('End voice')]).activity,'unknown');
 });
+
+test('explicit listening is reported only with an active Voice control; thinking takes priority',()=>{
+ const status=inspect([{visible:true,enabled:true,label:'End voice'}],{listening:true});
+ assert.equal(status.voice,'active');assert.equal(status.activity,'listening');
+ assert.equal(inspect([{visible:true,enabled:true,label:'End voice'}],{listening:true,thinking:true}).activity,'thinking');
+ assert.notEqual(inspect([{visible:true,enabled:true,label:'Start voice mode'}],{listening:true}).activity,'listening');
+});

@@ -1,6 +1,6 @@
 # Mac setup
 
-Start with [Phase 5](PHASE5.md) for supplied backgrounds, local-clock/weather controls, saved sunset alternatives, corrected actions and reduced-resolution settings. Existing working Phase 4 bridge/extension pairing is unchanged; no re-pairing is required for this update. The browser setup below remains applicable.
+Start with [Phase 6](PHASE6.md) for current full-body/personality controls, calibration, optional autonomy, export and rollback. Phase 5 backgrounds, local sunset alternatives and pairing files are preserved. Reload extension **0.3.0**, refresh your intended Project conversation, then explicitly select it again and restart output capture if needed. Keep your normal authenticated browser session; signing out is unnecessary.
 
 
 ## 1. Run the character
@@ -23,7 +23,7 @@ It binds only to `127.0.0.1:8765` and creates `.local/bridge.json` with a random
 ## 3. Install and pair the extension
 
 1. Open `chrome://extensions` (Edge: `edge://extensions`). Enable Developer mode, choose **Load unpacked**, and select `browser-controller/extension`.
-2. In the same browser profile where you already use ChatGPT, open your **Aisora Project and its intended conversation**. Complete normal sign-in, microphone and Voice setup yourself. The extension does not manage authentication or choose a Project.
+2. In the same browser profile where you already use ChatGPT, open your **Aisora Project and its intended conversation**. Complete normal sign-in, microphone and Voice setup yourself. The extension does not manage authentication or choose a Project. Enter your Project label in the popup; it is a user-selected label, not automatically verified membership. Select the actual conversation, not the home or Project landing page.
 3. Pin the Aisora extension to the toolbar and click it while that ChatGPT tab is selected.
 4. Choose **1. Choose bridge pairing file**, then `.local/bridge.json`. Dot folders are hidden in Finder: use **Command+Shift+G**, paste the full path to `/path/to/Aisora/.local`, then select `bridge.json`.
 5. Click **2. Use this ChatGPT tab**. Only this tab and conversation path receive commands; other ChatGPT tabs are ignored. Navigating to another conversation clears the selection and stops capture. Reselect after navigation, restarting the browser or closing the tab.

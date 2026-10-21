@@ -32,6 +32,14 @@ func run() -> void:
 	app.character.rng.seed = 2026
 	app.character.set_state(0 if idle else 3)
 	app.character.low_power = false
+	var action: String=str(options.get("action", ""))
+	if not action.is_empty():
+		app.character.ground.calibrated=true
+		app.character.ground.width=2.5;app.character.ground.depth=2.5
+		app.character.body.enabled=true
+		app.character.motion.scheduler_enabled=false
+		if action in app.character.body.ACTIONS:app.character.body.play(action,app.character)
+		else:app.character.ground.play(action,app.character)
 	if options.has("quality"):
 		app.quality = int(options.quality)
 		app._apply_quality()
@@ -51,6 +59,7 @@ func run() -> void:
 	result.render_scale = float(options.get("render-scale", "1.0"))
 	result.scene = "supplied sunset" if app.has_method("_apply_world_lighting") else "Phase 4 original illustration"
 	result.state = "idle" if idle else "talking"
+	result.action = action
 	if mode == "cpu":
 		for i in 300: app.character.tick(1.0 / 30.0)
 		var samples: Array[float] = []
@@ -65,12 +74,17 @@ func run() -> void:
 	else:
 		var part: String = str(options.get("part", "full"))
 		if part == "park": app.character.visible = false
-		if part == "character": app.park.visible = false
+		if part == "character":
+			app.park.visible = false
+			if app.get("illustrated") != null:
+				app.illustrated.visible = false
+				app.illustrated.foreground.visible = false
 		var samples: Array[float] = []
 		var frames: int = int(options.get("frames", "120"))
 		for i in 60 + frames:
 			var start: int = Time.get_ticks_usec()
 			if part != "park":
+				if action.begins_with("walk") and not app.character.ground.active:app.character.ground.play(action,app.character)
 				app.character.mouth = 0.0 if idle else 0.25 + sin(i * 0.15) * 0.20
 				app.character.tick(1.0 / 30.0)
 			if part != "character": app.park._process(1.0 / 30.0)
@@ -86,9 +100,11 @@ func run() -> void:
 		if app.has_method("_apply_world_lighting") and app.reduced_renderer.active:
 			result.character_resolution = str(app.reduced_renderer.viewport.size)
 		result.note = "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe."
+	result.bone_writes = app.character.bone_writes
+	result.face_writes = app.character.face_writes
 	result.static_memory_bytes = Performance.get_monitor(Performance.MEMORY_STATIC)
 	DirAccess.make_dir_recursive_absolute("res://.local")
-	var file: FileAccess = FileAccess.open("res://.local/bench-%s-%s.json" % [result.label, mode], FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(str(options.get("output", "res://.local/bench-%s-%s.json" % [result.label, mode])), FileAccess.WRITE)
 	file.store_string(JSON.stringify(result, "\t"))
 	print("AISORA_BENCH ", JSON.stringify(result))
 	DirAccess.remove_absolute(app.settings_path)

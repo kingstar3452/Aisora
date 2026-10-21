@@ -14,7 +14,7 @@ function worker() {
     set: async values => Object.assign(data, values),
     remove: async names => (Array.isArray(names) ? names : [names]).forEach(n => delete data[n])
   });
-  const context = vm.createContext({URL, AbortSignal, Date, console,
+  const context = vm.createContext({URL, AbortSignal, Date, console, crypto:require('node:crypto').webcrypto,
     fetch: async (url, options) => { calls.push({url, options}); return {ok: true, json: async () => url.endsWith('/health') ? {service: 'aisora', version: 1} : (url.endsWith('/v1/state') ? {connected: false, voice: 'unknown'} : {command: null})}; },
     chrome: {
       storage: {local: storage(local), session: storage(session)},
@@ -168,4 +168,58 @@ test('output-capture permission failure returns only a fixed diagnostic', async 
  const result=await new Promise(resolve=>listener({destination:'offscreen',type:'capture',streamId:'test',tabId:42},{},resolve));
  assert.equal(result.ok,false);assert.equal(result.diagnostic,'capture_denied');
  assert.equal(JSON.stringify(result).includes('private device detail'),false);
+});
+
+test('Project binding refuses home and Project landing pages without changing the selection', async () => {
+ const w=worker();
+ for(const url of ['https://chatgpt.com/','https://chatgpt.com/g/g-p-project-aisora/project','https://chatgpt.com.evil.example/c/x']) {
+  w.context.chrome.tabs.query=async()=>[{id:43,url}];
+  await assert.rejects(w.context.handle({type:'bind'},w.popup),/existing conversation/);
+  assert.equal(w.session.targetId,42);
+ }
+});
+test('Project label is explicit metadata and binding survives service-worker configuration reload', async () => {
+ const w=worker();await w.context.handle({type:'bind',projectLabel:'Aisora'},w.popup);
+ assert.equal(w.session.projectLabel,'Aisora');assert.match(w.session.bindingId,/^[a-f0-9-]{36}$/);
+ const id=w.session.bindingId;await w.context.handle({type:'bind',projectLabel:'Aisora'},w.popup);
+ assert.equal(w.session.bindingId,id);
+ const selected=await w.context.config();assert.equal(selected.projectLabel,'Aisora');assert.equal(selected.bindingId,id);
+ await w.context.handle({type:'tick',path:w.session.targetPath,voice:'inactive'},w.sender);
+ const sent=JSON.parse(w.calls.at(-1).options.body);assert.equal(sent.binding_id,id);assert.equal(sent.project_label,'Aisora');assert.equal(sent.path,undefined);
+});
+test('a pending Godot command prevents rebind before Voice has become visibly active', async () => {
+ const w=worker();w.context.chrome.tabs.query=async()=>[{id:43,url:'https://chatgpt.com/c/other'}];
+ w.context.fetch=async()=>({ok:true,json:async()=>({pending:true,voice:'inactive'})});
+ await assert.rejects(w.context.handle({type:'bind'},w.popup),/pending commands/);
+ assert.equal(w.session.targetId,42);
+});
+test('dispatch and confirmed Voice result close the duplicate-start guard gap', async () => {
+ const w=worker();w.context.fetch=async(url,options)=>{w.calls.push({url,options});return {ok:true,json:async()=>({command:{id:'one',action:'start'}})};};
+ await w.context.handle({type:'tick',path:w.session.targetPath,voice:'inactive'},w.sender);
+ assert.equal(w.session.voiceOwner.tabId,42);
+ await w.context.handle({type:'tick',path:w.session.targetPath,voice:'inactive',busy:true},w.sender);
+ assert.equal(w.session.voiceOwner.tabId,42);
+ await w.context.handle({type:'result',path:w.session.targetPath,id:'one',ok:true,observedVoice:'active'},w.sender);
+ assert.equal(JSON.parse(w.calls.at(-1).options.body).observed_voice,'active');
+ w.context.chrome.tabs.query=async()=>[{id:43,url:'https://chatgpt.com/c/other'}];
+ await assert.rejects(w.context.handle({type:'bind'},w.popup),/End Voice/);
+});
+test('same-tab reload preserves binding, navigation drops it, browser restart requires explicit selection', async()=>{
+ const w=worker();await w.context.handle({type:'bind'},w.popup);const id=w.session.bindingId;
+ await w.events.updated(42,{status:'complete'});assert.equal(w.session.bindingId,id);
+ await w.events.updated(42,{url:'https://chatgpt.com/c/other'});assert.equal(w.session.bindingId,undefined);
+ for(const key of Object.keys(w.session))delete w.session[key];
+ await assert.rejects(w.context.handle({type:'startVoice'},w.popup),/Select your existing/);
+});
+test('simultaneous bind requests serialize selection and script injection', async()=>{
+ const w=worker();await Promise.all([w.context.handle({type:'bind'},w.popup),w.context.handle({type:'bind'},w.popup)]);
+ assert.equal(w.calls.filter(c=>c.script).length,1);
+});
+
+test('late offscreen amplitude from another binding is rejected even in the same tab',async()=>{
+ const w=worker();w.session.bindingId='current';const sender={id:'test-extension',url:'chrome-extension://test-extension/offscreen.html'};
+ assert.equal((await w.context.handle({type:'audio',tabId:42,bindingId:'previous',rms:.8,capturing:true},sender)).ok,false);
+ assert.equal(w.calls.length,0);
+ assert.equal((await w.context.handle({type:'audio',tabId:42,bindingId:'current',rms:.2,capturing:true},sender)).ok,true);
+ assert.equal(JSON.parse(w.calls[0].options.body).binding_id,'current');
 });

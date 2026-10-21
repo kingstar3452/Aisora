@@ -2,6 +2,12 @@ class_name AisoraGroundMotion
 extends RefCounted
 ## Opt-in short steps on a user-calibrated clear rectangle. Analytic two-bone leg IK.
 const ACTIONS: Array[String]=["step_forward","step_back","pace","turn_left","turn_right"]
+const WALK_ACTIONS: Array[String]=["walk_forward","walk_backward","walk_left","walk_right"]
+const SUPPORTED_ACTIONS: Array[String]=["step_forward","step_back","pace","turn_left","turn_right","walk_forward","walk_backward","walk_left","walk_right"]
+var _desired_left: Array[Quaternion]=[Quaternion.IDENTITY,Quaternion.IDENTITY,Quaternion.IDENTITY]
+var _desired_right: Array[Quaternion]=[Quaternion.IDENTITY,Quaternion.IDENTITY,Quaternion.IDENTITY]
+var turn_degrees: float=25.
+var _walking: bool=false
 var calibrated: bool=false
 var width: float=.8
 var depth: float=.9
@@ -49,14 +55,29 @@ func reset_origin(c: Node) -> void:
  for point: Vector3 in _rest_feet:foot_points.append(c.to_global(point))
 
 func play(name_value: String,c: Node) -> bool:
- if name_value not in ACTIONS or not calibrated or active or c.motion.conversation_active or c.state!=0 or c.motion.sleep_amount>.01:
+ if name_value not in SUPPORTED_ACTIONS or not calibrated or active or (c.get("body")!=null and c.body.active) or c.motion.conversation_active or c.state!=0 or c.motion.sleep_amount>.01:
   message="Steps need calibrated clear ground, idle state and no active/pending Voice.";return false
- reset_origin(c);_queue.clear();_returning=false;phase=0.;blend=0.;_time=0.;max_stance_error=0.
+ _walking=name_value in WALK_ACTIONS
+ reset_origin(c);_queue.clear();_step.clear();_returning=false;phase=0.;blend=0.;_time=0.;max_stance_error=0.
  var distance: float=minf(stride,maxf(.05,depth*.5-.19))
  if width<.6 or depth<distance*2.+.38:message="Ground region too small for safe steps.";return false
  var rest_left: Vector3=_rest_feet[0]*c.scale.x;var rest_right: Vector3=_rest_feet[1]*c.scale.x
- if name_value in ["turn_left","turn_right"]:
-  var angle: float=deg_to_rad(25.)*(1. if name_value=="turn_left" else -1.)
+ if _walking:
+  var direction: Vector3=Vector3(0,0,1)
+  if name_value=="walk_backward":direction=Vector3(0,0,-1)
+  elif name_value=="walk_left":direction=Vector3(1,0,0)
+  elif name_value=="walk_right":direction=Vector3(-1,0,0)
+  var available: float=(depth*.5-.20*c.scale.x) if direction.z!=0 else (width*.5-.29*c.scale.x)
+  var step_length: float=minf(.18*c.scale.x,available/3.)
+  if step_length<.065*c.scale.x:message="Enlarge the calibrated area for a three-step walk.";return false
+  var lead: int=1 if direction.x<0. else 0
+  var feet: Array[Vector3]=[rest_left,rest_right]
+  for cycle in range(1,4):
+   _add(lead,feet[lead]+direction*step_length*cycle,0.);_add(1-lead,feet[1-lead]+direction*step_length*cycle,0.)
+  for cycle in [2,1,0]:
+   _add(1-lead,feet[1-lead]+direction*step_length*cycle,0.);_add(lead,feet[lead]+direction*step_length*cycle,0.)
+ elif name_value in ["turn_left","turn_right"]:
+  var angle: float=deg_to_rad(clampf(turn_degrees,15.,90.))*(1. if name_value=="turn_left" else -1.)
   var turn: Basis=Basis(Vector3.UP,angle)
   _add(0,turn*rest_left,angle);_add(1,turn*rest_right,angle)
  else:
@@ -65,7 +86,7 @@ func play(name_value: String,c: Node) -> bool:
   if name_value=="pace":
    var further: float=minf(distance*1.5,depth*.5-.19)
    _add(0,rest_left+Vector3(0,0,further*sign_value),0.);_add(1,rest_right+Vector3(0,0,further*sign_value),0.)
- _add(0,rest_left,0.);_add(1,rest_right,0.)
+ if not _walking:_add(0,rest_left,0.);_add(1,rest_right,0.)
  var planned_feet: Array[Vector3]=[rest_left,rest_right]
  var home_midpoint: Vector3=(rest_left+rest_right)*.5
  for step: Dictionary in _queue:
@@ -101,7 +122,7 @@ func tick(c: Node,delta: float) -> void:
  elif _step.is_empty():
   if not stop_for_voice:_next_step(c)
  elif phase<1.:
-  phase=minf(1.,phase+dt/.9)
+  phase=minf(1.,phase+dt/(.66 if _walking else .9))
   var weight: float=smoothstep(0.,1.,phase)
   var side: int=_step.side
   var goal: Vector3=origin+Vector3(_step.point)
@@ -116,7 +137,7 @@ func tick(c: Node,delta: float) -> void:
   if phase>=1.:
    foot_points[side]=goal;foot_angles[side]=_step.angle;_step.clear()
  # Stop safely with both feet planted. Return steps wait until the conversation ends.
- c.position=origin+root_offset+Vector3(0,-.012*blend,0);c.rotation.y=heading
+ c.position=origin+root_offset+Vector3(0,(-.012+(sin(phase*PI)*.007 if _walking and not _step.is_empty() else 0.))*blend,0);c.rotation.y=heading
  var hips_pose: Transform3D=c.pose_safety.joint_pose("Hips",c.motion.poses,c.motion.hips_offset)
  for side in 2:_solve_leg(c,side,foot_points[side],foot_angles[side],blend,hips_pose)
  # A small world-axis swing after the baseline pose, using cached FK rather than native skeleton queries.
@@ -129,7 +150,7 @@ func tick(c: Node,delta: float) -> void:
    var delta_q: Quaternion=Quaternion(Vector3.RIGHT,swing*(1. if side=="Left" else -1.))
    c._write_rotation(index,(parent_q.inverse()*delta_q*parent_q*Quaternion(c._last_rotations[index])).normalized())
 
-func _solve_leg(c: Node,side: int,world_target: Vector3,foot_yaw: float,weight: float,parent_pose: Transform3D) -> void:
+func _solve_leg(c: Node,side: int,world_target: Vector3,foot_yaw: float,weight: float,parent_pose: Transform3D,foot_pitch: float=0.) -> void:
  var ids: PackedInt32Array=_leg_indices[side]
  var hip: Vector3=parent_pose*Vector3(c.rest_positions[ids[0]])
  var target: Vector3=c.skeleton.to_local(world_target)
@@ -144,8 +165,9 @@ func _solve_leg(c: Node,side: int,world_target: Vector3,foot_yaw: float,weight: 
  var knee: Vector3=hip+direction*along+pole*sqrt(maxf(0.,a*a-along*along))
  var upper_q: Quaternion=Quaternion(Vector3(_leg_directions[side][0]),(knee-hip).normalized())*Quaternion(_leg_directions[side][2])
  var lower_q: Quaternion=Quaternion(Vector3(_leg_directions[side][1]),(target-knee).normalized())*Quaternion(_leg_directions[side][3])
- var foot_q: Quaternion=Quaternion(Vector3.UP,foot_yaw-heading)*_rest_bases[side]
- var desired: Array[Quaternion]=[parent_pose.basis.get_rotation_quaternion().inverse()*upper_q,upper_q.inverse()*lower_q,lower_q.inverse()*foot_q]
+ var foot_q: Quaternion=Quaternion(Vector3.RIGHT,foot_pitch)*Quaternion(Vector3.UP,foot_yaw-heading)*_rest_bases[side]
+ var desired: Array[Quaternion]=_desired_left if side==0 else _desired_right
+ desired[0]=parent_pose.basis.get_rotation_quaternion().inverse()*upper_q;desired[1]=upper_q.inverse()*lower_q;desired[2]=lower_q.inverse()*foot_q
  for i in 3:
   var bone: String=c.pose_safety.names[ids[i]]
   var offset: Vector3=c.motion.poses.get(bone,Vector3.ZERO)

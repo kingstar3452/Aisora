@@ -20,6 +20,8 @@ class BridgeState:
     def __init__(self, clock=time.monotonic):
         self.clock = clock
         self.lock = threading.RLock()
+        self.binding_id = ""
+        self.project_label = ""
         self.last_browser = -math.inf
         self.last_audio = -math.inf
         self.voice = "unknown"
@@ -42,7 +44,7 @@ class BridgeState:
             self.expire()
             connected = self.clock() - self.last_browser < 4
             audio_fresh = self.clock() - self.last_audio < 0.4
-            return {"connected": connected, "voice": self.voice if connected else "unknown",
+            return {"project_label": self.project_label if connected else "", "conversation_selected": connected and bool(self.binding_id), "connected": connected, "voice": self.voice if connected else "unknown",
                     "capturing": connected and self.capturing and audio_fresh,
                     "rms": self.rms if connected and self.capturing and audio_fresh else 0.0,
                     "pending": self.pending is not None,
@@ -55,10 +57,25 @@ class BridgeState:
             voice = data.get("voice")
             if voice not in ("unknown", "active", "inactive"):
                 raise ValueError("Invalid Voice state")
+            binding = data.get("binding_id", "")
+            label = data.get("project_label", "")
+            if not isinstance(binding, str) or (binding and not re.fullmatch(r"[a-zA-Z0-9-]{1,64}", binding)):
+                raise ValueError("Invalid binding identifier")
+            if not isinstance(label, str) or len(label) > 64 or any(ord(c) < 32 or ord(c) == 127 for c in label):
+                raise ValueError("Invalid Project label")
+            if binding != self.binding_id:
+                if self.pending:
+                    self.pending = None
+                    self.command_error = "Conversation selection changed; pending Voice command cancelled."
+                self.rms = 0.0
+                self.capturing = False
+                self.last_audio = -math.inf
+            self.binding_id = binding
+            self.project_label = label
             self.last_browser = self.clock()
             self.voice = voice
             activity = data.get("activity", "unknown")
-            self.activity = activity if voice == "active" and activity in ("thinking", "unknown") else "unknown"
+            self.activity = activity if voice == "active" and activity in ("thinking", "listening", "unknown") else "unknown"
             if not self.pending:
                 # Only fixed, non-content diagnostic codes are accepted from the extension.
                 self.error = self.command_error or {"ambiguous": "Voice controls are ambiguous; use manual Voice.",
@@ -92,7 +109,14 @@ class BridgeState:
             self.expire()
             if not self.pending or data.get("id") != self.pending["id"]:
                 return False
+            observed = data.get("observed_voice", "unknown")
+            if observed not in ("unknown", "active", "inactive"):
+                raise ValueError("Invalid observed Voice state")
             self.pending = None
+            if data.get("ok") is True and observed != "unknown":
+                self.voice = observed
+                self.activity = "unknown"
+                self.last_browser = self.clock()
             # A click is not success. The extension must observe the resulting control.
             self.error = "" if data.get("ok") is True else "Voice did not confirm the requested state. Use the browser's Voice controls."
             self.command_error = self.error
@@ -100,6 +124,9 @@ class BridgeState:
 
     def audio(self, data):
         with self.lock:
+            # Late output from the previous selection must never animate the new one.
+            if data.get("binding_id", self.binding_id) != self.binding_id:
+                return
             rms = data.get("rms", 0.0)
             if isinstance(rms, bool) or not isinstance(rms, (float, int)) or not math.isfinite(rms):
                 raise ValueError("Invalid amplitude")

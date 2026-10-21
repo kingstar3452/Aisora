@@ -1,12 +1,18 @@
 class_name AisoraCharacter
 extends Node3D
 ## Layers procedural movement over the actual imported VRM rest pose and facial bindings.
+const FullBody=preload("res://scripts/full_body.gd")
+const Personality=preload("res://scripts/personality.gd")
 const GroundMotion=preload("res://scripts/ground_motion.gd")
 const PoseSafety = preload("res://scripts/pose_safety.gd")
 const Motion = preload("res://scripts/motion_layers.gd")
 
 enum State { IDLE, LISTENING, THINKING, TALKING, SLEEPING }
 const STATE_NAMES: Array[String] = ["IDLE", "LISTENING", "THINKING", "TALKING", "SLEEPING"]
+var body: AisoraFullBody=FullBody.new()
+var profiling_enabled: bool=false
+var profile_ticks: int=0
+var profile_usec: PackedInt64Array=PackedInt64Array([0,0,0,0,0,0])
 var ground: AisoraGroundMotion=GroundMotion.new()
 var pose_safety: AisoraPoseSafety
 var _safety_tail: float=0.0
@@ -45,6 +51,9 @@ var _face_shapes: PackedInt32Array = PackedInt32Array()
 var _face_last: PackedFloat32Array = PackedFloat32Array()
 var _face_target: PackedFloat32Array = PackedFloat32Array()
 var _face_bindings: Array[Array] = []
+var _personality_dirty: bool=false
+var _personality_bindings: Array[Dictionary]=[]
+var _personality_last: PackedFloat32Array=PackedFloat32Array()
 var _face_weights: PackedFloat32Array = PackedFloat32Array([0, 0, 0, 0])
 var bone_writes: int = 0
 var face_writes: int = 0
@@ -81,7 +90,9 @@ func _ready() -> void:
 	_disable_secondary(model)
 	pose_safety=PoseSafety.new(self)
 	ground.setup(self)
+	body.setup(self)
 	_cache_face_bindings()
+	_cache_personality()
 	for mesh: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
 		for surface in mesh.mesh.get_surface_count():
 			material_slots.append({"mesh": mesh, "surface": surface, "original": mesh.get_active_material(surface)})
@@ -133,11 +144,16 @@ func _process(delta: float) -> void:
 func tick(delta: float) -> void:
 	if skeleton == null:
 		return
+	var sampled_at: int=Time.get_ticks_usec() if profiling_enabled else 0
 	time += delta
 	motion.intensity = animation_intensity
+	body.advance(self,delta)
 	var poses: Dictionary = motion.tick(delta, mouth)
+	body.compose(self,poses)
+	if profiling_enabled:sampled_at=_profile_stamp(0,sampled_at)
 	_safety_tail=0.6 if not motion.gesture.is_empty() else maxf(0.,_safety_tail-delta)
-	pose_safety.constrain(poses,motion.hips_offset,minf(delta,.1),_safety_tail>0.)
+	pose_safety.constrain(poses,motion.hips_offset,minf(delta,.1),_safety_tail>0. and not body.active)
+	if profiling_enabled:sampled_at=_profile_stamp(1,sampled_at)
 	for bone_name: String in poses:
 		_world_pose(bone_name, poses[bone_name])
 	var hips: int = int(bone_indices.get("Hips", -1))
@@ -146,6 +162,7 @@ func tick(delta: float) -> void:
 		if not position_target.is_equal_approx(_last_hips):
 			skeleton.set_bone_pose_position(hips, position_target)
 			_last_hips = position_target
+	if profiling_enabled:sampled_at=_profile_stamp(2,sampled_at)
 	# Secondary animation gets its own lower rate; primary gesture/breath poses stay continuous.
 	_secondary_clock += delta
 	var secondary_interval: float = 0.25 if backgrounded else (0.125 if low_power or visual_quality == 0 else 0.083333)
@@ -154,12 +171,14 @@ func tick(delta: float) -> void:
 		for i in hair_roots.size():
 			var index: int = hair_roots[i]
 			var hair_offset: Vector3 = Vector3.ZERO
-			if not low_power or i % 2 == 0:
+			if (not low_power or i % 2 == 0) and not body.active:
 				var strength: float = animation_intensity * (1.0 - motion.sleep_amount * 0.8)
 				hair_offset = Vector3(sin(time * 1.4 + i * 0.7) * 0.032, 0.0, sin(time * 1.1 + i) * 0.04) * strength
-			_write_rotation(index, rest_rotations[index] * Quaternion.from_euler(hair_offset))
-		_local_pose("LeftEye", Vector3(motion.gaze.y * 0.025, 0.0, motion.gaze.x * 0.065))
-		_local_pose("RightEye", Vector3(motion.gaze.y * 0.025, 0.0, motion.gaze.x * 0.065))
+			if not body.active:_write_rotation(index, rest_rotations[index] * Quaternion.from_euler(hair_offset))
+		var roll: float=motion.personality_envelope if motion.gesture=="eye_roll" else 0.
+		_local_pose("LeftEye", Vector3(motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06))
+		_local_pose("RightEye", Vector3(motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06))
+	if profiling_enabled:sampled_at=_profile_stamp(3,sampled_at)
 	blink_wait -= delta
 	if blink_wait <= 0.0 and blink_time < 0.0:
 		blink_time = 0.0
@@ -182,7 +201,11 @@ func tick(delta: float) -> void:
 	_face_weights[2] = (0.13 + talk * 0.12) * awake
 	_face_weights[3] = thought * 0.10 * awake
 	_update_face()
+	_update_personality(blink,sleep)
+	if profiling_enabled:sampled_at=_profile_stamp(4,sampled_at)
 	ground.tick(self,delta)
+	body.apply(self)
+	if profiling_enabled:_profile_stamp(5,sampled_at);profile_ticks+=1
 
 func _local_pose(bone_name: String, offset: Vector3) -> void:
 	var index: int = int(bone_indices.get(bone_name, -1))
@@ -305,3 +328,25 @@ func _apply_material_appearance(material: ShaderMaterial) -> void:
 	material.set_shader_parameter("world_tint",Color(world_tint.r,world_tint.g,world_tint.b,1))
 	material.set_shader_parameter("world_energy",world_energy*appearance_brightness)
 	material.set_shader_parameter("appearance_contrast",appearance_contrast)
+
+func _cache_personality() -> void:
+	for mesh: MeshInstance3D in model.find_children("*","MeshInstance3D",true,false):
+		if mesh.name!="Face":continue
+		for name_value: String in Personality.SHAPES:
+			var shape: int=mesh.find_blend_shape_by_name(name_value)
+			if shape>=0:_personality_bindings.append({"mesh":mesh,"shape":shape,"index":Personality.SHAPES.find(name_value)})
+	_personality_last.resize(_personality_bindings.size());_personality_last.fill(0.)
+
+func _update_personality(blink: float,sleep: float) -> void:
+	if motion.personality_envelope<=0. and not _personality_dirty:return
+	_personality_dirty=motion.personality_envelope>0.
+	for i in _personality_bindings.size():
+		var binding: Dictionary=_personality_bindings[i]
+		var value: float=Personality.face(motion.gesture,binding.index)*motion.personality_envelope*(1.-sleep)
+		if binding.index in [4,5,6]:value*=1.-blink
+		if binding.index>=7:value*=1.-mouth
+		if not is_equal_approx(value,_personality_last[i]):
+			binding.mesh.set_blend_shape_value(binding.shape,value);_personality_last[i]=value;face_writes+=1
+
+func _profile_stamp(stage: int,started: int) -> int:
+	var now: int=Time.get_ticks_usec();profile_usec[stage]+=now-started;return now

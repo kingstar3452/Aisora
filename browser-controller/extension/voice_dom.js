@@ -15,7 +15,7 @@
     const end = buttons.filter(b => b.visible && (['end', 'both'].includes(b.custom) || labels.end.has(normalize(b.label)) || ids.end.has(b.testId)));
     if (start.length > 1 || end.length > 1 || (start.length && end.length))
       return {voice: 'unknown', diagnostic: 'ambiguous', start: null, end: null};
-    if (end.length === 1) return {voice: 'active', activity: markers.thinking === true ? 'thinking' : 'unknown', diagnostic: '', start: null, end: end[0]};
+    if (end.length === 1) return {voice: 'active', activity: markers.thinking === true ? 'thinking' : (markers.listening === true ? 'listening' : 'unknown'), diagnostic: '', start: null, end: end[0]};
     if (start.length === 1) return {voice: 'inactive', diagnostic: '', start: start[0], end: null};
     return {voice: 'unknown', diagnostic: 'missing', start: null, end: null};
   }

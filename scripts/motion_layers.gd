@@ -2,20 +2,24 @@ class_name AisoraMotionLayers
 extends RefCounted
 ## Independent, composable pose layers in the imported skeleton's world rest axes.
 ## Mouth and eyelids remain separate facial layers in AisoraCharacter.
+const Personality=preload("res://scripts/personality.gd")
 const Catalog = preload("res://scripts/action_catalog.gd")
 const IDLE: int = 0
 const LISTENING: int = 1
 const THINKING: int = 2
 const TALKING: int = 3
 const SLEEPING: int = 4
-const GESTURE_DURATION: Dictionary = {"wave": 4.2, "stretch": 5.2, "inspect": 4.8, "settle": 3.4, "explain": 3.5, "nod": 2.0, "breathe":4.8,"look_sides":5.8,"look_up":4.6,"look_down":4.2,"fingers":5.8,"hands":5.5,"back_stretch":5.0,"curious":4.0,"fold_arms":6.0,"hand_face":5.2,"weight_shift":5.5,"brush_hair":4.8,"playful":4.5}
+const GESTURE_DURATION: Dictionary = {"wave": 4.2, "stretch": 5.2, "inspect": 4.8, "settle": 3.4, "explain": 3.5, "nod": 2.0, "breathe":4.8,"look_sides":5.8,"look_up":4.6,"look_down":4.2,"fingers":5.8,"hands":5.5,"back_stretch":5.0,"curious":4.0,"fold_arms":6.0,"hand_face":5.2,"weight_shift":5.5,"brush_hair":4.8,"playful":4.5,"unimpressed":6.,"eye_roll":3.4,"smirk":4.,"dramatic_turn":4.,"mock_annoyance":4.6,"laugh":4.8,"curious_tilt":4.,"disbelief":4.6,"point":4.5,"hand_on_hip":5.5}
 
 const FINGER_CHAINS: Dictionary={
 	"Left":[["LeftIndexProximal","LeftIndexIntermediate","LeftIndexDistal"],["LeftMiddleProximal","LeftMiddleIntermediate","LeftMiddleDistal"],["LeftRingProximal","LeftRingIntermediate","LeftRingDistal"],["LeftLittleProximal","LeftLittleIntermediate","LeftLittleDistal"]],
 	"Right":[["RightIndexProximal","RightIndexIntermediate","RightIndexDistal"],["RightMiddleProximal","RightMiddleIntermediate","RightMiddleDistal"],["RightRingProximal","RightRingIntermediate","RightRingDistal"],["RightLittleProximal","RightLittleIntermediate","RightLittleDistal"]]
 }
-const REST_ARM_Z: float=1.10
+const REST_ARM_Z: float=1.04
 const ARM_BONES: Dictionary = {"Left":["LeftUpperArm","LeftLowerArm","LeftHand"],"Right":["RightUpperArm","RightLowerArm","RightHand"]}
+var personality_intensity: float=.55
+var personality_envelope: float=0.
+var external_sleep: float=0.
 var locomotion_active: bool=false
 var queued_gesture: String=""
 var context_weights: Dictionary={}
@@ -106,7 +110,7 @@ func start_gesture(name: String) -> bool:
 	return true
 
 func is_resting() -> bool:
-	return mode == SLEEPING and sleep_progress >= 1.0
+	return (mode == SLEEPING and sleep_progress >= 1.0) or external_sleep>=.999
 
 func tick(delta: float, audio_mouth: float) -> Dictionary:
 	if not is_finite(delta) or delta <= 0.0:
@@ -118,7 +122,7 @@ func tick(delta: float, audio_mouth: float) -> Dictionary:
 	for state: int in weights:
 		weights[state] = lerpf(float(weights[state]), 1.0 if state == mode else 0.0, state_blend)
 	sleep_progress = move_toward(sleep_progress, 1.0 if mode == SLEEPING else 0.0, dt / (2.4 if mode == SLEEPING else 1.8))
-	sleep_amount = smoothstep(0.0, 1.0, sleep_progress)
+	sleep_amount = maxf(external_sleep,smoothstep(0.0, 1.0, sleep_progress))
 	wake_time += dt
 	var awake: float = 1.0 - sleep_amount
 	var listen: float = float(weights[LISTENING]) * awake
@@ -224,6 +228,7 @@ func _update_gesture(dt: float) -> void:
 	start_gesture(str(choices[rng.randi_range(0, choices.size() - 1)]))
 
 func _gesture_pose(strength: float) -> Dictionary:
+	personality_envelope=0.
 	if gesture.is_empty():
 		return EMPTY_POSE
 	var duration: float = float(GESTURE_DURATION[gesture])
@@ -232,6 +237,7 @@ func _gesture_pose(strength: float) -> Dictionary:
 		_gesture_work.clear()
 		_gesture_work_name = gesture
 	var result: Dictionary = _gesture_work
+	personality_envelope=fade*personality_intensity if gesture in Personality.IDS else 0.
 	match gesture:
 		"wave":
 			result["LeftUpperArm"] = Vector3(-1.12, 0.0, 0.84)
@@ -293,7 +299,7 @@ func _gesture_pose(strength: float) -> Dictionary:
 			result["LeftShoulder"]=Vector3(0,0,0.06);result["RightShoulder"]=Vector3(0,0,-0.06)
 		"curious":
 			result["Head"]=Vector3(-0.03,0.04,gesture_side*0.21)
-		"fold_arms":
+		"fold_arms","unimpressed":
 			var inward: float=smoothstep(.8,1.6,gesture_time)*(1.-smoothstep(duration-1.6,duration-.8,gesture_time))
 			_arm(result,"Left",Vector3(.245,-.755,-.39).lerp(Vector3(.59,-.92,-.25),inward),lerpf(-1.23,-1.455,inward))
 			_arm(result,"Right",Vector3(.245,.755,.39).lerp(Vector3(.72,.92,.20),inward),lerpf(1.23,1.315,inward))
@@ -321,6 +327,38 @@ func _gesture_pose(strength: float) -> Dictionary:
 			result["LeftHand"]=Vector3(0,sin(gesture_time*5)*0.18,0.15)
 			result["RightHand"]=Vector3(0,-sin(gesture_time*5)*0.18,-0.15)
 			result["Head"]=Vector3(0,0,sin(gesture_time*2.0)*0.06)
+
+		"eye_roll":
+			result["Head"]=Vector3(-.05,-.08,.09)
+		"smirk":
+			result["Head"]=Vector3(-.035,.12,-.045)
+		"dramatic_turn":
+			var theatrical: float=smoothstep(.9,1.5,gesture_time)*(1.-smoothstep(duration-1.4,duration-.7,gesture_time))
+			result["Head"]=Vector3(-.06,gesture_side*.36*theatrical,.06)
+			result["Chest"]=Vector3(0,gesture_side*.09*theatrical,0)
+		"mock_annoyance":
+			result["Head"]=Vector3(.08,sin(gesture_time*4.)*.08,.06)
+			result["LeftShoulder"]=Vector3(0,0,.055);result["RightShoulder"]=Vector3(0,0,-.055)
+		"laugh":
+			result["Head"]=Vector3(-.08+sin(gesture_time*7.)*.035,0,.04)
+			result["Chest"]=Vector3(sin(gesture_time*7.)*.025,0,0)
+			result["LeftShoulder"]=Vector3(0,0,sin(gesture_time*7.)*.025)
+			result["RightShoulder"]=Vector3(0,0,-sin(gesture_time*7.)*.025)
+		"curious_tilt":
+			result["Head"]=Vector3(-.04,.09,gesture_side*.22)
+		"disbelief":
+			result["Head"]=Vector3(-.13,sin(gesture_time*3.)*.10,gesture_side*.09)
+			result["Chest"]=Vector3(-.08,0,0)
+			result["LeftShoulder"]=Vector3(0,0,.07);result["RightShoulder"]=Vector3(0,0,-.07)
+		"point":
+			_arm(result,"Left",Vector3(-.225,-.46,-.75),-1.30)
+			_soft_fingers(result,"Left",.43)
+			for segment: String in ["Proximal","Intermediate","Distal"]:result["LeftIndex"+segment]=Vector3.ZERO
+			result["Head"]=Vector3(0,.10,-.05)
+		"hand_on_hip":
+			_arm(result,"Right",Vector3(.96,.105,.445),1.37)
+			result["Head"]=Vector3(-.07,-.08,-.08)
+			result["Chest"]=Vector3(0,-.04,.035)
 
 	for bone: String in result:
 		result[bone] = Vector3(result[bone]) * fade

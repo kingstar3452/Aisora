@@ -18,6 +18,8 @@ def main():
     parser.add_argument('--current-label', default='phase3')
     parser.add_argument('--runs', type=int, default=3)
     parser.add_argument('--frames', type=int, default=180)
+    parser.add_argument('--part', choices=['full', 'park', 'character'], default='full')
+    parser.add_argument('--modes', nargs='+', choices=['cpu', 'render'], default=['cpu', 'render'])
     parser.add_argument('--state', choices=['idle', 'talking'], default='talking')
     parser.add_argument('--presets', nargs='+', choices=['low', 'balanced', 'high'], default=['low', 'balanced', 'high'])
     parser.add_argument('--scales', nargs='+', type=float, default=[1.0], help='Current-version 3D scales; baseline is always native.')
@@ -43,12 +45,12 @@ def main():
     # Interleave versions per repetition to reduce time-of-run bias, never overlap engines.
     for repetition in range(args.runs):
         for label, project, quality, scale in cases:
-            for mode in ['cpu', 'render']:
+            for mode in dict.fromkeys(args.modes):
                 command = [str(project / 'tools/run_godot.sh')]
                 command += ['--headless'] if mode == 'cpu' else ['--audio-driver', 'Dummy']
                 command += ['--script', str(harness), '--', f'--mode={mode}',
                             f'--label={label}-{repetition+1}', f'--quality={quality}',
-                            f'--frames={args.frames}', f'--state={args.state}', f'--render-scale={scale}']
+                            f'--frames={args.frames}', f'--state={args.state}', f'--render-scale={scale}', f'--part={args.part}']
                 run = subprocess.run(command, cwd=project, env=environment,
                                      capture_output=True, text=True, timeout=180)
                 log = run.stdout + run.stderr
@@ -67,13 +69,13 @@ def main():
     medians = {}
     for label, _, _, _ in cases:
         medians[label] = {}
-        for mode in ['cpu', 'render']:
+        for mode in dict.fromkeys(args.modes):
             subset = [r for r in samples if r['case'] == label and r['mode'] == mode]
             metric = 'character_tick' if mode == 'cpu' else 'frame'
             medians[label][mode] = {field: statistics.median(r[metric][field] for r in subset)
                                     for field in ['mean_ms', 'p50_ms', 'p95_ms']}
     output = {'method': {'runs': args.runs, 'measured_frames': args.frames, 'warmup_frames': 60,
-                         'state': args.state,
+                         'state': args.state, 'part': args.part,
                          'lp_num_threads': environment['LP_NUM_THREADS'], 'uncapped': True,
                          'resolution': '960x600', 'ui_and_network': False,
                          'summary': 'Median of per-run statistics, not pooled frame percentiles.'},

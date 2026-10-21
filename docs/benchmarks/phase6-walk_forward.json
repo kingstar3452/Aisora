@@ -1,0 +1,26 @@
+{
+  "action": "walk_forward",
+  "bone_writes": 3970,
+  "draw_calls": 22.0,
+  "engine": "4.6.3-stable (official)",
+  "face_writes": 15,
+  "frame": {
+    "mean_ms": 29.7676333333333,
+    "p50_ms": 24.864,
+    "p95_ms": 42.136
+  },
+  "label": "phase6-walk_forward",
+  "mode": "render",
+  "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+  "part": "full",
+  "primitives": 23850.0,
+  "process_ms": 514.692,
+  "quality": 0,
+  "render_scale": 1.0,
+  "rendering_method": "gl_compatibility",
+  "resolution": "960x600",
+  "scene": "supplied sunset",
+  "state": "idle",
+  "static_memory_bytes": 47294413.0,
+  "video_memory_bytes": 264383531.0
+}

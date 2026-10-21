@@ -10,7 +10,7 @@ async function run(task) {
 }
 async function refresh() {
   const s = await send('status');
-  status.textContent = `${s.connected ? 'Tab connected' : 'Tab disconnected'} · Voice ${s.voice} · Output ${s.capturing ? 'capturing' : 'off'}${s.error ? '\n' + s.error : ''}`;
+  status.textContent = `${s.selected ? 'Selected: ' + (s.projectLabel || 'conversation') : 'Select the Project conversation'} · ${s.connected ? 'Tab connected' : 'Tab disconnected'} · Voice ${s.voice} · Output ${s.capturing ? 'capturing' : 'off'}${s.error ? '\n' + s.error : ''}`;
 }
 document.querySelector('#pair').addEventListener('change', event => run(async () => {
   const file = event.target.files[0];
@@ -27,16 +27,17 @@ for (const [id, type, message] of [
   ['releaseGuard', 'releaseGuard', 'Stale guard cleared. Use this only after ending Voice manually.'],
   ['toggle', 'toggle', 'Command sent. Confirm the Voice interface in ChatGPT.']
 ]) document.querySelector('#' + id).addEventListener('click', () => run(async () => {
-  await send(type); status.textContent = message;
+  await send(type, type === 'bind' ? {projectLabel: document.querySelector('#project').value} : {}); status.textContent = message;
 }));
 document.querySelector('#refresh').addEventListener('click', () => run(refresh));
 document.querySelector('#selectors').addEventListener('click', () => run(async () => {
-  await send('selectors', {start: document.querySelector('#start').value.trim(), end: document.querySelector('#end').value.trim(), thinking: document.querySelector('#thinking').value.trim()});
+  await send('selectors', {start: document.querySelector('#start').value.trim(), end: document.querySelector('#end').value.trim(), thinking: document.querySelector('#thinking').value.trim(), listening: document.querySelector('#listening').value.trim()});
   status.textContent = 'Selectors saved. Confirm they target only Voice controls.';
 }));
-chrome.storage.local.get(['startSelector', 'endSelector', 'thinkingSelector']).then(data => {
+chrome.storage.local.get(['startSelector', 'endSelector', 'thinkingSelector', 'listeningSelector']).then(data => {
   document.querySelector('#start').value = data.startSelector || '';
   document.querySelector('#end').value = data.endSelector || '';
   document.querySelector('#thinking').value = data.thinkingSelector || '';
+  document.querySelector('#listening').value = data.listeningSelector || '';
 });
 void run(refresh);

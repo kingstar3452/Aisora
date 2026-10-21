@@ -14,13 +14,13 @@ func run() -> void:
  var material: StandardMaterial3D=StandardMaterial3D.new();material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED;material.albedo_color=Color("879d96");plane.material_override=material;app.add_child(plane)
  var canvas: CanvasLayer=CanvasLayer.new();canvas.layer=20;root.add_child(canvas)
  var label: Label=Label.new();label.position=Vector2(15,15);label.add_theme_color_override("font_color",Color("20352d"));label.add_theme_font_size_override("font_size",23);canvas.add_child(label)
- var directory: String="res://.local/phase5-ground";DirAccess.make_dir_recursive_absolute(directory)
- var moments: Array[float]=[0.,.9,1.3,2.1,2.7,8.]
- for action: String in c.ground.ACTIONS:
+ var directory: String="res://.local/phase6-ground";DirAccess.make_dir_recursive_absolute(directory)
+ var moments: Array[float]=[0.,.9,1.3,2.1,2.7,12.]
+ for action: String in c.ground.SUPPORTED_ACTIONS:
   var sheet: Image=Image.create(1440,720,false,Image.FORMAT_RGBA8)
   c.motion=Motion.new(456);c.motion.scheduler_enabled=false;c._safety_tail=0;c.state=0;c.blink_wait=999;c.blink_time=-1
   for i in 20:c.tick(1./30.)
-  c.ground.calibrated=true;c.ground.measure_contacts=true
+  c.ground.calibrated=true;c.ground.width=2.5;c.ground.depth=2.5;c.ground.measure_contacts=true
   if not c.ground.play(action,c):printerr("Capture refused: ",action);quit(1);return
   var frame: int=0
   for column in moments.size():

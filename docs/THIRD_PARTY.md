@@ -42,3 +42,9 @@ All three requested repositories were verified by successful HTTPS Git reads and
 | [chitoku/ChatGPTVoiceLauncher](https://github.com/chitoku/ChatGPTVoiceLauncher) · `4df9f007c16262254446d294ce35ff5b5c45f5da` | Windows .NET/WinForms tray app; Vosk/Porcupine wake words and ChatGPT activation attempts. | MIT in LICENSE.txt, with unfilled year/name placeholders. Dependencies/assets have separate terms. | Windows-only, unnecessary microphone/wake-word processing for this request. |
 
 Inspection confirms repository existence and implementation scope, not operational success on an authenticated consumer account. GitHub REST metadata was inaccessible in this cloud network; the Git proxy was sufficient to inspect source and license files.
+
+## Phase 6 motions and optional engine exports
+
+Full-body IK, contact targets, personality poses, facial weights and clothing-bone corrections are original procedural source, authored against the unchanged supplied VRM. No third-party motion clips or new runtime dependency are added. Existing character/image restrictions above still apply.
+
+The optional `tools/prepare_export_templates.py` downloads Godot **4.6.3** official templates from [godotengine/godot-builds](https://github.com/godotengine/godot-builds/releases/tag/4.6.3-stable), verifies the pinned GitHub archive SHA-256 and individual retained files, and extracts unchanged x86_64 slices from the official universal Mac binaries into a separate ignored custom template. Godot is MIT-licensed and includes components under their respective licenses; distribution must include the engine license/notices. See `docs/licenses/Godot-4.6.3-NOTICES.txt`, generated from this engine build. No engine/template binaries are committed. These are optional development/export tooling downloads, not app startup downloads.
