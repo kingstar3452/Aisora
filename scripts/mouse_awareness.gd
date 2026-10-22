@@ -16,7 +16,7 @@ func reset() -> void:
  target=Vector2.ZERO;hovered=false;_hold=0.;_sent_hover=false;pending=false;entered=false
 func sample(delta: float,app: Node) -> void:
  _clock+=delta;_quiet+=delta
- if not app.performance.focused or app.performance.minimized or app.settings_panel.visible or app.character.motion.is_resting():reset();return
+ if app.character.motion.conversation_active or not app.performance.focused or app.performance.minimized or app.settings_panel.visible or app.character.motion.is_resting():reset();return
  if _quiet>2.:target=Vector2.ZERO
  if _clock<1./15.:return
  var dt: float=minf(_clock,.2);_clock=0.;entered=false

@@ -39,6 +39,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--project',action='append',required=True,help='label=/absolute/path, repeat in desired order')
     parser.add_argument('--cases',type=Path,default=ROOT/'tools/performance_cases.json')
+    parser.add_argument('--harness',type=Path,default=ROOT/'tools/performance_matrix.gd',help='Independent additional feature probe; default matrix is unchanged')
     parser.add_argument('--runs',type=int,default=3)
     parser.add_argument('--profile',action='store_true')
     parser.add_argument('--resume',type=Path,help='Retain valid completed cases from a matching earlier dataset; rerun only missing cases')
@@ -73,7 +74,7 @@ def main():
         files=[directory/'project.godot']+sorted((directory/'scripts').glob('*.gd'))+sorted((directory/'assets').rglob('*.gdshader'))
         for source in files:fingerprint.update(source.relative_to(directory).as_posix().encode()+b'\0'+source.read_bytes())
         provenance[label]={'source_path':str(directory.resolve()),'runtime_sha256':fingerprint.hexdigest(),'source_commit':(directory/'.benchmark-source-commit').read_text().strip() if (directory/'.benchmark-source-commit').exists() else subprocess.run(['git','rev-parse','HEAD'],cwd=directory,capture_output=True,text=True).stdout.strip()}
-    provenance['harness_sha256']=digest(ROOT/'tools/performance_matrix.gd')
+    provenance['harness_sha256']=digest(args.harness)
     provenance['cases_sha256']=digest(args.cases)
     catalogue=json.loads(args.cases.read_text())
     case_ids={item['id'] for item in catalogue}
@@ -110,7 +111,7 @@ def main():
                     effective_cases.write_text(json.dumps(pending))
                 project=Path(project).resolve()
                 env={**os.environ,'LP_NUM_THREADS':'2','AISORA_BRIDGE_CONFIG':str(pairing)}
-                cmd=[str(project/'tools/run_godot.sh'),'--audio-driver','Dummy','--script',str(ROOT/'tools/performance_matrix.gd'),'--',f'--cases={effective_cases}',f'--mode_file={mode_file}',f'--profile={str(args.profile).lower()}']
+                cmd=[str(project/'tools/run_godot.sh'),'--audio-driver','Dummy','--script',str(args.harness.resolve()),'--',f'--cases={effective_cases}',f'--mode_file={mode_file}',f'--profile={str(args.profile).lower()}']
                 proc=subprocess.Popen(cmd,cwd=project,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
                 active={'begin':None,'rss':[],'cgroup':{}};guard=threading.Lock();done=threading.Event()
                 def sample():

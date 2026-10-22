@@ -51,6 +51,7 @@ func run() -> void:
  app.character.motion.conversation_active=true
  for i in 120:app.character.tick(1./30.)
  check(app.character.motion.cursor_gaze.length()<.001,"Voice fades tracking out")
+ app.mouse_awareness.moved(Vector2(480,220));app.mouse_awareness.sample(.1,app);check(not app.mouse_awareness.pending and app.mouse_awareness.target==Vector2.ZERO,"Voice skips unnecessary hit testing and clears queued pointer work")
  var before: float=app.character.mouth;app._update_autonomy(.25);check(app.character.mouth==before,"Autonomy never overrides amplitude mouth")
  app.character.motion.conversation_active=false;app.character.motion.gesture="";app.character.motion.cursor_target=Vector2(100.,-100.)
  # Mouse target clamps before animation; test actual projected avatar hover.
