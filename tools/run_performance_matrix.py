@@ -78,6 +78,8 @@ def main():
     provenance['cases_sha256']=digest(args.cases)
     catalogue=json.loads(args.cases.read_text())
     case_ids={item['id'] for item in catalogue}
+    session_bus_configured=bool(os.environ.get('DBUS_SESSION_BUS_ADDRESS'))
+    display_policy=os.environ.get('AISORA_TEST_DISPLAY_POLICY','unknown')
     resumed_from=None
     if args.resume:
         prior=json.loads(args.resume.read_text())
@@ -85,6 +87,8 @@ def main():
             raise SystemExit('Resume harness/case fingerprint differs; keep datasets separate.')
         records=prior['records'];environments=prior.get('environments',{})
         if prior['method'].get('renderer_queries_enabled',False)!=args.profile:raise SystemExit('Resume profiling mode differs')
+        if bool(prior['method'].get('session_bus_configured',False))!=session_bus_configured or prior['method'].get('display_policy','unknown')!=display_policy:
+            raise SystemExit('Resume desktop-session environment differs; keep datasets separate.')
         keys=[(r['revision'],r['repetition'],r['case']['id']) for r in records if not r.get('excluded_reason')]
         if len(keys)!=len(set(keys)):raise SystemExit('Duplicate valid resume cases are not allowed')
         for label,_ in projects:
@@ -95,7 +99,7 @@ def main():
         resumed_from={'path':str(args.resume.resolve()),'sha256':digest(args.resume),'note':'Existing valid cases retained. Partial batches restart in a fresh process with normal warmup; allocator high-water memory may differ.'}
 
     def save():
-        out.write_text(json.dumps({'method':{'runs':args.runs,'cases':str(args.cases),'animation_delta':1/30,'warmup_frames':60,'LP_NUM_THREADS':2,'native_macos':False,'authenticated_voice':False,'bridge':'actual Python loopback bridge; browser/audio state synthetic','cpu':'per measured case, one logical core = 100%','rss':'10 Hz Linux procfs samples during measurement','renderer_queries_enabled':args.profile,'gpu_utilization':'unavailable; llvmpipe timer queries are software-renderer timings, not physical GPU usage'},'resumed_from':resumed_from,'provenance':provenance,'environments':environments,'records':records},indent=2)+'\n')
+        out.write_text(json.dumps({'method':{'runs':args.runs,'session_bus_configured':session_bus_configured,'display_policy':display_policy,'cases':str(args.cases),'animation_delta':1/30,'warmup_frames':60,'LP_NUM_THREADS':2,'native_macos':False,'authenticated_voice':False,'bridge':'actual Python loopback bridge; browser/audio state synthetic','cpu':'per measured case, one logical core = 100%','rss':'10 Hz Linux procfs samples during measurement','renderer_queries_enabled':args.profile,'gpu_utilization':'unavailable; llvmpipe timer queries are software-renderer timings, not physical GPU usage'},'resumed_from':resumed_from,'provenance':provenance,'environments':environments,'records':records},indent=2)+'\n')
     try:
         for repetition in range(args.runs):
             # Alternate complete project order across repetitions; never overlap renderers.

@@ -62,5 +62,28 @@ func run() -> void:
  app.bridge.state.connected=true;app.bridge.state.voice="unknown";check(app._autonomy_context().voice_uncertain,"Unknown selected-browser Voice status suppresses unsolicited dialogue")
  app.stage_mode=1;actual=app._autonomy_context();check(actual.scene=="procedural_park" and actual.weather=="clear" and not actual.effects.rain,"Fallback never fabricates image weather")
  check(FileAccess.get_file_as_string("res://config/aisora-personality.md").contains("feisty"),"Version-controlled personality available")
+ test_cursor_directions(app.character)
  app.free();DirAccess.remove_absolute(file)
  print("AUTONOMY TESTS: ",checks," checks; ",failures," failures");quit(1 if failures else 0)
+
+func test_cursor_directions(c: Node) -> void:
+ # Derive the real face direction from the imported eye/head positions; do not
+ # assert an Euler sign without checking its actual effect on this skeleton.
+ c.animation_intensity=0.;c.motion.scheduler_enabled=false;c.motion.conversation_active=false;c.motion.locomotion_active=false;c.motion.gesture=""
+ c.motion.cursor_head=false;c.motion.cursor_eyes=false;c.motion.cursor_target=Vector2.ZERO
+ for i in 90:c.tick(1./30.)
+ var head: int=c.bone_indices.Head;var left: int=c.bone_indices.LeftEye;var right: int=c.bone_indices.RightEye
+ var h0: Transform3D=c.skeleton.get_bone_global_pose(head);var l0: Transform3D=c.skeleton.get_bone_global_pose(left);var r0: Transform3D=c.skeleton.get_bone_global_pose(right)
+ var forward: Vector3=(l0.origin+r0.origin)*.5-h0.origin;forward.y=0.;forward=forward.normalized()
+ for mode: String in ["head_right","head_down","eyes_right","eyes_down"]:
+  c.motion.cursor_head=false;c.motion.cursor_eyes=false;c.motion.cursor_target=Vector2.ZERO
+  for i in 90:c.tick(1./30.)
+  c.motion.cursor_head=mode.begins_with("head");c.motion.cursor_eyes=mode.begins_with("eyes");c.motion.cursor_target=Vector2.DOWN if mode.ends_with("down") else Vector2.RIGHT
+  for i in 90:c.tick(1./30.)
+  if c.motion.cursor_head:
+   var direction: Vector3=(c.skeleton.get_bone_global_pose(head).basis*h0.basis.inverse())*forward
+   check(direction.y<-.02 if mode.ends_with("down") else direction.x>.05,"Actual head faces toward the cursor: "+mode)
+  else:
+   for pair: Array in [[left,l0],[right,r0]]:
+    var direction: Vector3=(c.skeleton.get_bone_global_pose(pair[0]).basis*Transform3D(pair[1]).basis.inverse())*forward
+    check(direction.y<-.02 if mode.ends_with("down") else direction.x>.04,"Actual eye faces toward the cursor: "+mode)

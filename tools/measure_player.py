@@ -97,7 +97,7 @@ def main():
                 with state.lock:state.last_browser=-math.inf;state.last_audio=-math.inf
     thread=threading.Thread(target=browser,daemon=True);thread.start()
     def save():
-        out.write_text(json.dumps({'method':{'runs':args.runs,'frames':args.frames,'warmup_frames':60,'target_fps':30,'observer':'Mesa frametime_(ms), hidden HUD, one dump sample per presented frame','cpu':'procfs near measured-frame boundaries; one logical core=100%','voice':'real Python bridge; synthetic browser/audio','macos':False,'editor_ui':False,'cold_start':'all initial frame traces retained; shader caches persist per player across repetitions'},'records':records},indent=2)+'\n')
+        out.write_text(json.dumps({'method':{'runs':args.runs,'session_bus_configured':bool(os.environ.get('DBUS_SESSION_BUS_ADDRESS')),'display_policy':os.environ.get('AISORA_TEST_DISPLAY_POLICY','unknown'),'frames':args.frames,'warmup_frames':60,'target_fps':30,'observer':'Mesa frametime_(ms), hidden HUD, one dump sample per presented frame','cpu':'procfs near measured-frame boundaries; one logical core=100%','voice':'real Python bridge; synthetic browser/audio','macos':False,'editor_ui':False,'cold_start':'all initial frame traces retained; shader caches persist per player across repetitions'},'records':records},indent=2)+'\n')
     try:
         for repetition in range(args.runs):
             players=player_specs if repetition%2==0 else list(reversed(player_specs))

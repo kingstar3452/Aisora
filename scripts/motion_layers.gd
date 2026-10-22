@@ -160,7 +160,7 @@ func tick(delta: float, audio_mouth: float) -> Dictionary:
 		for chain: Array in FINGER_CHAINS[side]:layers.posture[chain[0]]=Vector3(0,0,-.12 if side=="Left" else .12)
 	layers.gaze["Head"] = Vector3(gaze.y * 0.07, gaze.x * 0.16, gaze.x * 0.035)
 	if cursor_head:
-		layers.gaze["Head"]+=Vector3(cursor_gaze.y*.035,-cursor_gaze.x*.09,0.)
+		layers.gaze["Head"]+=Vector3(cursor_gaze.y*.035,cursor_gaze.x*.09,0.)
 	layers.gaze["Neck"] = Vector3(0.0, gaze.x * 0.055, sin(time * 0.41 + phase) * 0.025 * intensity * awake)
 	var speech: float = clampf(audio_mouth * 2.0, 0.0, 1.0) * talk * intensity
 	layers.speech["Head"] = Vector3(sin(time * 2.5 + phase) * 0.045 * speech, sin(time * 1.7) * 0.035 * speech, sin(time * 1.2) * 0.025 * speech)
