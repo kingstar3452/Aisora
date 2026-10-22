@@ -1,0 +1,57 @@
+name: Native Mac validation (no publication)
+on:
+  push:
+    branches: [ci/aisora-native-validation]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: aisora-native-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Install pinned official Godot editor and templates
+        run: |
+          python3 tools/validate_macos_ci.py bootstrap
+          python3 tools/prepare_export_templates.py
+      - name: Import original project
+        run: |
+          ./tools/run_godot.sh --headless --editor --import > .local/macos-ci/import.log 2>&1
+          cat .local/macos-ci/import.log
+          if grep -Eq 'SCRIPT ERROR|^ERROR:' .local/macos-ci/import.log; then exit 1; fi
+      - name: Native Go tests, including real directory exchange
+        run: |
+          python3 - <<'PYTHON'
+          import subprocess, sys
+          from pathlib import Path
+          result = subprocess.run([sys.executable, 'tools/prepare_updater.py', '--test'], capture_output=True, text=True)
+          text = result.stdout + result.stderr
+          Path('.local/macos-ci/native-go.log').write_text(text)
+          print(text)
+          if result.returncode:
+              detail = text[-28000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Native Go validation details::' + detail)
+          raise SystemExit(result.returncode)
+          PYTHON
+      - name: Rebuild ad-hoc Intel app with the existing export workflow
+        run: python3 tools/export_macos.py --output .local/macos-ci/Aisora-phase6-macos.zip
+      - name: Native signature, runtime, resource and quarantine checks
+        run: python3 tools/validate_macos_ci.py validate --archive .local/macos-ci/Aisora-phase6-macos.zip
+      - name: Stage owner-reviewable private draft (never publish)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/validate_macos_ci.py stage-draft --archive .local/macos-ci/Aisora-phase6-macos.zip
+      # No upload-artifact action and no release publication. Draft assets remain private.
