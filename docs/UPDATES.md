@@ -1,4 +1,4 @@
-# Updater-enabled Phase 6 — 6.1.0-rc.1
+# Updater-enabled Phase 6 — 6.1.0-rc.2 candidate
 
 Publication is on hold for performance work; v6.1.0-rc.1 has been returned to draft and its artifact branch removed. Previously shared immutable GitHub URLs may remain cached/reachable. A new candidate needs a report and user approval. Native Mac acceptance is still required. Development and Linux tests do not modify the currently installed Mac app.
 
@@ -58,7 +58,7 @@ python3 tools/prepare_macos_signer.py
 python3 tools/export_macos.py --output exports/Aisora-phase6-macos.zip
 python3 tools/macos_bundle.py exports/Aisora-phase6-macos.zip
 python3 tools/prepare_update_release.py \
-  --archive exports/Aisora-phase6-macos.zip --tag v6.1.0-rc.1 \
+  --archive exports/Aisora-phase6-macos.zip --tag v6.1.0-rc.2 \
   --notes /path/to/reviewed-notes.md --output-dir .local/update-release
 ```
 
@@ -72,6 +72,6 @@ Future changes require a version bump, tests/export, review, approval and public
 
 ## Local Mac acceptance still needed
 
-Linux tests cover validation, transaction failure injection, simulated Voice, actual-VRM regression/rendering and before/after measurements. They cannot certify Intel Ventura helper/syscall execution, native Apple assessments, Archive Utility quarantine, LaunchServices/health acknowledgement, APFS/HFS+ replacement, authenticated ChatGPT Voice or iMac performance.
+Linux tests cover validation, transaction failure injection, simulated Voice, actual-VRM regression/rendering and before/after measurements. Additional native Intel macOS 15 CI passes the real directory-exchange/reversal smoke test, Apple signature verification, exported headless startup and packed-resource rendering. Gatekeeper rejects the quarantined ad-hoc copy, as expected; this is not a trusted-distribution success. Native CI does not certify Ventura 13 on the target iMac, Archive Utility download quarantine, Finder/LaunchServices health acknowledgement and rollback, all APFS/HFS+ installations, authenticated ChatGPT Voice or hardware performance. See [the complete validation scope](TEST_RESULTS.md).
 
 On a spare home-folder installation test channels/notes, interrupted/corrupt downloads, permissions/disk full, blocked ad-hoc updates, Voice beginning during download/restart, duplicate instances, an accepted update, early exit/health timeout, interruption recovery and repeated rollback. Confirm all settings/images/calibration/pairing survive. Keep the working installation until these pass. See [performance evidence](PERFORMANCE_UPDATER.md).
