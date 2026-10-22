@@ -1,6 +1,11 @@
 # Implementation and validation record
 
-## Phase 6: current validation
+## macOS signing repair
+
+The reported damaged download matches the published checksum. The old app has correct Intel executable permissions and matching machine-code page hashes but lacks an Aisora CodeResources seal/Info.plist binding. Basic ZIP/resource checks missed that packaging defect. The repair adds complete-app ad-hoc signing after all content changes, an independent code-page/special-slot/resource hash verifier, atomic output replacement, and 11 packaging regression tests. Full runtime functionality is unchanged. The repaired candidate passes 516 core checks and 24 real Compatibility rendering checks against its extracted pack in Linux, plus code-page/special-slot/resource hash validation. Native codesign, Gatekeeper and macOS launch tests remain unperformed. See [repair findings, test scope and remaining Apple trust requirements](MACOS_LAUNCH_REPAIR.md). Linux consistency checks are not native Gatekeeper or launch tests.
+
+
+## Phase 6 implementation validation (before the packaging repair)
 
 Godot **4.6.3 official / Compatibility**, Linux cloud, **21 October 2026**. The core runner passes **505 checks/tests**: 18 Python, 28 JavaScript, 35 original actual-model/state, 58 Phase 2, 38 Phase 3, 117 Phase 4, 93 Phase 5, **103 Phase 6** and 15 live local Godot/HTTP fixture checks. Script imports and JavaScript syntax pass. The original VRM SHA-256 remains `46f3ec42b2dca1558b936f37dc0927af906e294f278cf756c0c329a1d23dab68`; Phase 5 supplied backgrounds are unchanged.
 

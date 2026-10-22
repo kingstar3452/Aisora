@@ -1,5 +1,8 @@
 # Phase 6 setup and acceptance
 
+**macOS launch update:** the first standalone download was reported damaged. See the [bundle-signing repair](MACOS_LAUNCH_REPAIR.md) before installing a new candidate. The replacement is ad-hoc signed, with verified code/resource seals; Apple Developer ID/notarization and native Gatekeeper acceptance remain unavailable.
+
+
 Phase 6 adds calibrated full-body motion, opt-in autonomy and ten authored personality gestures to the working Phase 5 viewer. The original VRM, five supplied illustrations, local sunset alternatives, weather, clock, lighting, voice bridge and performance controls remain. **Start with Low, native 3D resolution, 30 FPS.** Full-body rest and major-action autonomy default off. Existing standing actions continue without floor calibration.
 
 ## Install and preserve the working version
@@ -14,6 +17,7 @@ For a standalone Intel Mac test app, run the optional export setup below. A clou
 # Optional development export, not required to run from the editor.
 # Downloads ~1.26 GB of official templates once; verifies pinned SHA-256.
 python3 tools/prepare_export_templates.py
+python3 tools/prepare_macos_signer.py
 mkdir -p exports
 python3 tools/export_macos.py --output exports/Aisora.zip
 ```

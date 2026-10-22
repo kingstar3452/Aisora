@@ -6,6 +6,8 @@ A lightweight Godot 4 anime companion over an illustrated sakura background or i
 
 Phase 6 continues on `dev/aisora-companion`: bounded four-direction skeletal walking, step turns, calibrated sitting/reclining/sleep/get-up, opt-in local autonomy and ten reusable personality gestures. Existing Phase 5 images, clock, weather and settings are preserved. The selected-Project-conversation Voice bridge adds safer binding/reconnection; native Voice still needs local Mac verification. See [Phase 6 setup and limits](docs/PHASE6.md), [performance evidence](docs/PERFORMANCE_PHASE6.md) and [test results](docs/TEST_RESULTS.md).
 
+For the standalone macOS launch failure, use the [bundle-signing repair candidate and limitations](docs/MACOS_LAUNCH_REPAIR.md). Its verified ad-hoc seals do not establish Apple Developer ID trust, notarization or native Ventura launch success.
+
 ## Start on your Mac
 
 1. Install the standard **Godot 4.6.3 editor** from [godotengine.org](https://godotengine.org/download/archive/4.6.3-stable/) and open this repository's `project.godot`. Allow the first VRM import to finish. Both bundled plugins should be enabled under Project Settings → Plugins.

@@ -1,4 +1,8 @@
-# Phase 6 Intel Mac test build
+# Phase 6 Intel Mac builds
+
+**Current: [bundle-signing repair candidate and limitations](MACOS_LAUNCH_REPAIR.md).** The original download below was reported as damaged on Ventura. It lacks an Aisora bundle resource seal; its earlier structure-only checks did not establish valid bundle signing. Use the new repair release and its checksum. Ad-hoc repair is not Developer ID signing/notarization or a guarantee of Gatekeeper acceptance.
+
+## Original 21 October build (historical)
 
 Built in Linux with Godot **4.6.3 official** export templates on **21 October 2026**. The final delivery includes `Aisora-phase6-macos.zip` (56,718,758 bytes), containing the unsigned **Intel x86_64** `Aisora.app`, resource pack and engine notices. The executable has its execute permission set; ZIP integrity, app bundle identity and x86_64 Mach-O header pass verification. An isolated Linux editor-based pack player loads all five images and the original skeleton/main scene from the Mac app's extracted pack. The Mac executable itself cannot run here.
 
