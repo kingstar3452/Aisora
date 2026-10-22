@@ -18,6 +18,18 @@ import (
 	"testing"
 )
 
+// macOS exposes /var and /tmp as symlink aliases. Transaction fixtures use
+// their canonical temporary root, as real installations must; the production
+// noSymlink check must remain strict for every path component.
+func canonicalTempDir(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
 func manifestFixture() Manifest {
 	return Manifest{Schema: 1, Version: "6.2.0", Tag: "v6.2.0", URL: "https://github.com/kingstar3452/Aisora/releases/download/v6.2.0/" + archiveName, SHA256: strings.Repeat("a", 64), Bytes: 20, Architecture: "x86_64", BundleID: "local.aisora.companion", MinMacOS: "13.0", Protocol: 1}
 }
@@ -84,7 +96,7 @@ func TestRejectUnsafeManifest(t *testing.T) {
 func TestZIPTraversalAndPermissions(t *testing.T) {
 	for _, name := range []string{"../Aisora.app/Contents/x", "Aisora.app/../outside", "Aisora.app/Contents/../../bad", "/Aisora.app/x", "Aisora.app\\x", "evil.sh"} {
 		t.Run(name, func(t *testing.T) {
-			root := t.TempDir()
+			root := canonicalTempDir(t)
 			archive := filepath.Join(root, "bad.zip")
 			f, _ := os.Create(archive)
 			z := zip.NewWriter(f)
@@ -102,7 +114,7 @@ func TestZIPTraversalAndPermissions(t *testing.T) {
 	}
 	for _, kind := range []string{"symlink", "duplicate", "noexecute"} {
 		t.Run(kind, func(t *testing.T) {
-			root := t.TempDir()
+			root := canonicalTempDir(t)
 			archive := filepath.Join(root, "input.zip")
 			f, _ := os.Create(archive)
 			z := zip.NewWriter(f)
@@ -166,7 +178,7 @@ func fakeExchange(a, b string) error {
 	return os.Rename(temp, b)
 }
 func TestTransactionRestoresAndIsIdempotent(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	token := strings.Repeat("b", 64)
 	app := filepath.Join(root, "Aisora.app")
 	candidate := filepath.Join(root, ".Aisora-update-"+token+".app")
@@ -193,7 +205,7 @@ func TestTransactionRestoresAndIsIdempotent(t *testing.T) {
 	}
 }
 func TestDeniedAtomicSwapLeavesOriginal(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	token := strings.Repeat("c", 64)
 	app := filepath.Join(root, "Aisora.app")
 	candidate := filepath.Join(root, ".Aisora-update-"+token+".app")
@@ -201,8 +213,15 @@ func TestDeniedAtomicSwapLeavesOriginal(t *testing.T) {
 	tinyBundle(t, candidate, "6.2.0")
 	before, _ := treeDigest(app)
 	tx := Transaction{Token: token, App: app, Candidate: candidate, Version: "6.2.0", PreviousVersion: "6.1.0"}
-	if e := swapTransaction(&tx, filepath.Join(root, "journal.json"), func(string, string) error { return os.ErrPermission }); e == nil {
+	calls := 0
+	if e := swapTransaction(&tx, filepath.Join(root, "journal.json"), func(string, string) error {
+		calls++
+		return os.ErrPermission
+	}); e == nil {
 		t.Fatal("denied swap succeeded")
+	}
+	if calls != 1 {
+		t.Fatal("permission fixture did not reach the exchange", calls)
 	}
 	after, _ := treeDigest(app)
 	if before != after {
@@ -210,7 +229,7 @@ func TestDeniedAtomicSwapLeavesOriginal(t *testing.T) {
 	}
 }
 func TestJournalFailureRestoresOriginal(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	token := strings.Repeat("d", 64)
 	app := filepath.Join(root, "Aisora.app")
 	candidate := filepath.Join(root, ".Aisora-update-"+token+".app")
@@ -236,7 +255,7 @@ func TestJournalFailureRestoresOriginal(t *testing.T) {
 	}
 }
 func TestInterruptedJournalInfersRealVersions(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	token := strings.Repeat("e", 64)
 	tx := Transaction{Token: token, App: filepath.Join(root, "Aisora.app"), Candidate: filepath.Join(root, ".Aisora-update-"+token+".app"), Version: "6.2.0", PreviousVersion: "6.1.0", Phase: "prepared"}
 	tinyBundle(t, tx.App, "6.2.0")
@@ -250,7 +269,7 @@ func TestInterruptedJournalInfersRealVersions(t *testing.T) {
 	}
 }
 func TestTreeAndStructureRejectChanges(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	app := filepath.Join(root, "Aisora.app")
 	tinyBundle(t, app, "6.2.0")
 	if e := validateBundle(app, "6.2.0"); e != nil {
@@ -280,7 +299,7 @@ func TestVoiceGuard(t *testing.T) {
 	}))
 	defer server.Close()
 	port := strings.Split(server.URL, ":")[2]
-	path := filepath.Join(t.TempDir(), "bridge.json")
+	path := filepath.Join(canonicalTempDir(t), "bridge.json")
 	os.WriteFile(path, []byte(`{"key":"`+strings.Repeat("a", 64)+`","port":`+port+`}`), 0600)
 	if voiceClear(path, true) == nil {
 		t.Fatal("active Voice allowed even with manual confirmation")
@@ -302,7 +321,7 @@ func TestVoiceGuard(t *testing.T) {
 	}
 }
 func TestLockAndAtomicJSON(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	unlock, e := lock(root)
 	if e != nil {
 		t.Fatal(e)
@@ -329,7 +348,7 @@ func TestHTTPFailureDoesNotCreateDownload(t *testing.T) {
 	// Cancellation exercises a failed download without talking to the Internet.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	p := filepath.Join(t.TempDir(), "archive.zip")
+	p := filepath.Join(canonicalTempDir(t), "archive.zip")
 	if e := download(ctx, manifestFixture(), p, func(int64) {}); e == nil {
 		t.Fatal("cancelled download passed")
 	}
@@ -372,7 +391,7 @@ func TestDownloadChecksumLengthAndInterruption(t *testing.T) {
 				}
 				return &http.Response{StatusCode: code, ContentLength: -1, Body: io.NopCloser(bytes.NewReader(payload))}, nil
 			})}
-			path := filepath.Join(t.TempDir(), "download.zip")
+			path := filepath.Join(canonicalTempDir(t), "download.zip")
 			e := downloadUsing(context.Background(), client, m, path, func(int64) {})
 			if which == "valid" {
 				if e != nil {
@@ -394,5 +413,25 @@ func TestDownloadChecksumLengthAndInterruption(t *testing.T) {
 				t.Fatal("partial not cleaned")
 			}
 		})
+	}
+}
+
+func TestBundleRejectsSymlinkAncestor(t *testing.T) {
+	root := canonicalTempDir(t)
+	actual := filepath.Join(root, "real")
+	alias := filepath.Join(root, "alias")
+	app := filepath.Join(actual, "Aisora.app")
+	tinyBundle(t, app, "6.2.0")
+	if err := validateBundle(app, "6.2.0"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(actual, alias); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateBundle(filepath.Join(alias, "Aisora.app"), "6.2.0"); err == nil {
+		t.Fatal("bundle through symlink ancestor accepted")
+	}
+	if err := validateBundle(app, "6.2.0"); err != nil {
+		t.Fatal("rejected alias changed original bundle", err)
 	}
 }
