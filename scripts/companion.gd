@@ -536,7 +536,7 @@ func _process(delta: float) -> void:
 	if diagnostics_visible and _diagnostic_clock >= 0.5:
 		_diagnostic_clock = 0.0
 		var stats: Dictionary = diagnostics.snapshot()
-		diagnostics_label.text = "%.1f FPS · %.1f ms / frame\nP95 %.1f ms · Engine process %.2f ms\n%d draw calls · cap %d · %s" % [stats.fps,stats.mean_ms,stats.p95_ms,Performance.get_monitor(Performance.TIME_PROCESS)*1000.0,Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),Engine.max_fps,["Low","Balanced","High"][quality]]+"\n3D %s · %d%% · %s"%[str(reduced_renderer.viewport.size) if reduced_renderer.active else "native",roundi((reduced_renderer.scale_factor if reduced_renderer.active else 1.)*100),"adaptive" if adaptive.enabled else "manual"]
+		diagnostics_label.text = "%.1f FPS · %.1f ms / frame\nP95 %.1f · P99 %.1f ms · Engine process %.2f ms\n%d draw calls · cap %d · %s" % [stats.fps,stats.mean_ms,stats.p95_ms,stats.p99_ms,Performance.get_monitor(Performance.TIME_PROCESS)*1000.0,Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),Engine.max_fps,["Low","Balanced","High"][quality]]+"\n3D %s · %d%% · %s"%[str(reduced_renderer.viewport.size) if reduced_renderer.active else "native",roundi((reduced_renderer.scale_factor if reduced_renderer.active else 1.)*100),"adaptive" if adaptive.enabled else "manual"]
 	var voice_active: bool = bridge.state.get("voice", "unknown") == "active"
 	var audio_fresh: bool = bool(bridge.state.get("capturing", false)) and (voice_active or manual_state == Character.State.TALKING)
 	var rms: float = float(bridge.state.get("rms", 0.0))

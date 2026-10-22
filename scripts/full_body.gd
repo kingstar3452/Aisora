@@ -98,7 +98,8 @@ func apply(c: Node) -> void:
    _cleanup=false
   return
  var a: float=smoothstep(0.,1.,seat);var b: float=smoothstep(0.,1.,recline)
- var hips: Transform3D=c.pose_safety.joint_pose("Hips",c.motion.poses,c.motion.hips_offset)
+ c.pose_safety.prepare_pose(c.motion.poses,c.motion.hips_offset)
+ var hips: Transform3D=c.pose_safety.prepared_joint("Hips")
  for side in 2:
   var mirror: float=1. if side==0 else -1.
   var floor_foot: Vector3=origin+Vector3(mirror*.10,.10,.52+_shift*.015*mirror)*c.scale.x
@@ -106,12 +107,14 @@ func apply(c: Node) -> void:
   var foot_q: Quaternion=Quaternion(Vector3.RIGHT,-1.1*b)*_legs[side].rest_quaternions[2]
   _legs[side].solve(c,target,hips,foot_q,Vector3.BACK,1.)
   var hand: Vector3=origin+Vector3(mirror*lerpf(.16,.28,b),lerpf(seat_height+.20,.10,b),lerpf(-.08,-.35+_shift*.01*mirror,b))*c.scale.x
-  var parent: Transform3D=c.pose_safety.joint_pose(_arms[side].parent_name,c.motion.poses,c.motion.hips_offset)
+  var parent: Transform3D=c.pose_safety.prepared_joint(_arms[side].parent_name)
   var hand_q: Quaternion=Quaternion(Vector3.UP,-PI*.5*mirror)*_arms[side].rest_quaternions[2]
   _arms[side].solve(c,hand,parent,hand_q,Vector3(mirror,0,0),a)
  var hq: Quaternion=hips.basis.get_rotation_quaternion()
  for side in 2:
-  _inverse_legs[side]=_legs[side].transforms[0].affine_inverse();_inverse_quaternions[side]=_legs[side].transforms[0].basis.get_rotation_quaternion().inverse()
+  # Limb IK constructs orthonormal quaternion bases, so transpose inversion
+  # is exact here; no affine scale/shear inverse is needed.
+  _inverse_legs[side]=_legs[side].transforms[0].inverse();_inverse_quaternions[side]=_legs[side].transforms[0].basis.get_rotation_quaternion().inverse()
  for item: Dictionary in _cloth:
   if item.root:
    var position_value: Vector3=Vector3(item.position).lerp(_inverse_legs[item.side]*(hips*Vector3(item.offset)),a)

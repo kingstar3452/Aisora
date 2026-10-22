@@ -118,6 +118,8 @@ func run() -> void:
 	check(absf(frame_data.snapshot().fps-30.0) < 0.01,"Diagnostic FPS reports measured frame intervals")
 	frame_data.record(0.2)
 	check(frame_data.snapshot().mean_ms > 34.0 and frame_data.snapshot().p95_ms < 34.0,"Overlay distinguishes a rare spike from normal p95 pacing")
+	frame_data.record(0.18)
+	check(frame_data.snapshot().p99_ms>179. and frame_data.snapshot().median_ms<34.,"P99 exposes rare stalls without changing median pacing")
 	frame_data.record(NAN)
 	frame_data.record(-1)
 	check(frame_data.count == 120 and frame_data.samples.size() == 120,"Diagnostics reject invalid intervals and bound memory")

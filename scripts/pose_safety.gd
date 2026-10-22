@@ -87,4 +87,11 @@ func constrain(poses_value: Dictionary,hips_value: Vector3,delta: float,active: 
   for part: String in ARM_PARTS:limited[side+part]=poses_value.get(side+part,Vector3.ZERO)
 
 func joint_pose(name_value: String,poses_value: Dictionary,hips_value: Vector3) -> Transform3D:
- _poses=poses_value;_hips=hips_value;cache.clear();return _global(indices[name_value])
+ prepare_pose(poses_value,hips_value);return prepared_joint(name_value)
+
+func prepare_pose(poses_value: Dictionary,hips_value: Vector3) -> void:
+ # One immutable pose snapshot can serve both arm parents and the pelvis.
+ _poses=poses_value;_hips=hips_value;cache.clear()
+
+func prepared_joint(name_value: String) -> Transform3D:
+ return _global(indices[name_value])

@@ -1,6 +1,6 @@
 # Updater-enabled Phase 6 — 6.1.0-rc.1
 
-The [approved preview](https://github.com/kingstar3452/Aisora/releases/tag/v6.1.0-rc.1) is published. Native Mac acceptance is still required. Development and Linux tests do not modify the currently installed Mac app.
+Publication is on hold for performance work; v6.1.0-rc.1 has been returned to draft and its artifact branch removed. Previously shared immutable GitHub URLs may remain cached/reachable. A new candidate needs a report and user approval. Native Mac acceptance is still required. Development and Linux tests do not modify the currently installed Mac app.
 
 ## One-time installation
 

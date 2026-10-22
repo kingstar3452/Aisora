@@ -41,3 +41,8 @@ python3 tests/live_bridge_smoke.py
 cat .local/update-tests.log
 if grep -Eq 'SCRIPT ERROR|^ERROR:|^FAIL:' .local/update-tests.log; then exit 1; fi
 grep -Eq 'UPDATE TESTS: [1-9][0-9]* checks; 0 failures' .local/update-tests.log
+
+./tools/run_godot.sh --headless --script res://tests/test_performance.gd > .local/performance-tests.log 2>&1
+cat .local/performance-tests.log
+if grep -Eq 'SCRIPT ERROR|^ERROR:|^FAIL:' .local/performance-tests.log; then exit 1; fi
+grep -Eq 'PERFORMANCE TESTS: [1-9][0-9]* checks; 0 failures' .local/performance-tests.log

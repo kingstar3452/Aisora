@@ -1,0 +1,413 @@
+[
+  {
+    "id": "idle-q0",
+    "state": "idle",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "speaking-q0",
+    "state": "speaking",
+    "quality": 0,
+    "bridge": "connected"
+  },
+  {
+    "id": "listening-q0",
+    "state": "listening",
+    "quality": 0,
+    "bridge": "connected"
+  },
+  {
+    "id": "walking-q0",
+    "state": "walking",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "sitting-q0",
+    "state": "sitting",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "reclining-q0",
+    "state": "reclining",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "sleeping-q0",
+    "state": "sleeping",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "personality-q0",
+    "state": "personality",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "idle-q1",
+    "state": "idle",
+    "quality": 1,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "speaking-q1",
+    "state": "speaking",
+    "quality": 1,
+    "bridge": "connected"
+  },
+  {
+    "id": "listening-q1",
+    "state": "listening",
+    "quality": 1,
+    "bridge": "connected"
+  },
+  {
+    "id": "walking-q1",
+    "state": "walking",
+    "quality": 1,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "sitting-q1",
+    "state": "sitting",
+    "quality": 1,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "reclining-q1",
+    "state": "reclining",
+    "quality": 1,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "sleeping-q1",
+    "state": "sleeping",
+    "quality": 1,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "personality-q1",
+    "state": "personality",
+    "quality": 1,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "idle-q2",
+    "state": "idle",
+    "quality": 2,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "speaking-q2",
+    "state": "speaking",
+    "quality": 2,
+    "bridge": "connected"
+  },
+  {
+    "id": "listening-q2",
+    "state": "listening",
+    "quality": 2,
+    "bridge": "connected"
+  },
+  {
+    "id": "walking-q2",
+    "state": "walking",
+    "quality": 2,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "sitting-q2",
+    "state": "sitting",
+    "quality": 2,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "reclining-q2",
+    "state": "reclining",
+    "quality": 2,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "sleeping-q2",
+    "state": "sleeping",
+    "quality": 2,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "personality-q2",
+    "state": "personality",
+    "quality": 2,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "nighttime-clear-q0",
+    "state": "idle",
+    "quality": 0,
+    "slot": "nighttime",
+    "weather": "clear",
+    "branches": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "daytime-heavy_rain-q0",
+    "state": "idle",
+    "quality": 0,
+    "slot": "daytime",
+    "weather": "heavy_rain",
+    "branches": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "nighttime-clear-q2",
+    "state": "idle",
+    "quality": 2,
+    "slot": "nighttime",
+    "weather": "clear",
+    "branches": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "daytime-heavy_rain-q2",
+    "state": "idle",
+    "quality": 2,
+    "slot": "daytime",
+    "weather": "heavy_rain",
+    "branches": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "gesture-eye_roll",
+    "state": "personality",
+    "gesture": "eye_roll",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "gesture-smirk",
+    "state": "personality",
+    "gesture": "smirk",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "gesture-dramatic_turn",
+    "state": "personality",
+    "gesture": "dramatic_turn",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "gesture-mock_annoyance",
+    "state": "personality",
+    "gesture": "mock_annoyance",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "gesture-laugh",
+    "state": "personality",
+    "gesture": "laugh",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "gesture-curious_tilt",
+    "state": "personality",
+    "gesture": "curious_tilt",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "gesture-disbelief",
+    "state": "personality",
+    "gesture": "disbelief",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "gesture-point",
+    "state": "personality",
+    "gesture": "point",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "gesture-hand_on_hip",
+    "state": "personality",
+    "gesture": "hand_on_hip",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "idle-1120x700",
+    "state": "idle",
+    "quality": 0,
+    "width": 1120,
+    "height": 700,
+    "bridge": "connected"
+  },
+  {
+    "id": "speaking-1120x700",
+    "state": "speaking",
+    "quality": 0,
+    "width": 1120,
+    "height": 700,
+    "bridge": "connected"
+  },
+  {
+    "id": "idle-1920x1080",
+    "state": "idle",
+    "quality": 0,
+    "width": 1920,
+    "height": 1080,
+    "bridge": "connected"
+  },
+  {
+    "id": "speaking-1920x1080",
+    "state": "speaking",
+    "quality": 0,
+    "width": 1920,
+    "height": 1080,
+    "bridge": "connected"
+  },
+  {
+    "id": "idle-connected",
+    "state": "idle",
+    "quality": 0,
+    "bridge": "connected"
+  },
+  {
+    "id": "idle-bridge-offline",
+    "state": "idle",
+    "quality": 0,
+    "bridge": "offline"
+  },
+  {
+    "id": "inactive-paced",
+    "state": "idle",
+    "quality": 0,
+    "bridge": "disconnected",
+    "inactive": true,
+    "paced": true
+  },
+  {
+    "id": "voice-low-power",
+    "state": "speaking",
+    "quality": 0,
+    "bridge": "connected",
+    "low_power": true,
+    "paced": true
+  },
+  {
+    "id": "idle-memory",
+    "state": "idle",
+    "quality": 0,
+    "bridge": "disconnected",
+    "frames": 1800
+  },
+  {
+    "id": "nighttime-clear-q1",
+    "state": "idle",
+    "quality": 1,
+    "slot": "nighttime",
+    "weather": "clear",
+    "branches": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "daytime-heavy_rain-q1",
+    "state": "idle",
+    "quality": 1,
+    "slot": "daytime",
+    "weather": "heavy_rain",
+    "branches": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "misty-q0",
+    "state": "idle",
+    "quality": 0,
+    "weather": "misty",
+    "branches": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "misty-q1",
+    "state": "idle",
+    "quality": 1,
+    "weather": "misty",
+    "branches": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "misty-q2",
+    "state": "idle",
+    "quality": 2,
+    "weather": "misty",
+    "branches": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "effects-off-q0",
+    "state": "idle",
+    "quality": 0,
+    "effects_off": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "effects-off-q2",
+    "state": "idle",
+    "quality": 2,
+    "effects_off": true,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "voice-unfocused-30fps",
+    "state": "speaking",
+    "quality": 0,
+    "bridge": "connected",
+    "inactive": true,
+    "paced": true,
+    "cap": 30
+  },
+  {
+    "id": "foreground-30fps",
+    "state": "idle",
+    "quality": 0,
+    "bridge": "disconnected",
+    "paced": true,
+    "cap": 30
+  },
+  {
+    "id": "speaking-reduced-viewport",
+    "state": "speaking",
+    "quality": 0,
+    "bridge": "connected",
+    "render_scale": 0.65
+  },
+  {
+    "id": "idle-reduced-viewport",
+    "state": "idle",
+    "quality": 0,
+    "bridge": "disconnected",
+    "render_scale": 0.65
+  },
+  {
+    "id": "crossfade-q0",
+    "state": "idle",
+    "quality": 0,
+    "bridge": "disconnected",
+    "crossfade": true
+  },
+  {
+    "id": "crossfade-q2",
+    "state": "idle",
+    "quality": 2,
+    "bridge": "disconnected",
+    "crossfade": true
+  }
+]
