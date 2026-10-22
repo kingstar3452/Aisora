@@ -1,0 +1,29 @@
+{
+  "commit": "e3a1c56a0b6f7cff146404b33d3fbc242cc45425",
+  "engine": "4.6.3.stable.official.7d41c59c4",
+  "architecture": "x86_64",
+  "zip_crc": "pass",
+  "duplicate_entries": false,
+  "executable_permissions": "0o100755",
+  "minimum_os_load_commands": [
+    [
+      10,
+      13,
+      0
+    ]
+  ],
+  "app_identifier": "local.aisora.companion",
+  "pack_bytes": 25663784,
+  "sha256": "ea6511fd8017cc631b334e1c4a0022b353d53c7e9627f0aafbc0b0e77963d785",
+  "zip_bytes": 56718758,
+  "native_macos_executed": false,
+  "signed_or_notarized": false,
+  "core_checks": 505,
+  "core_failures": 0,
+  "packed_phase6_render_checks": 24,
+  "packed_phase6_render_failures": 0,
+  "five_backgrounds_decoded": true,
+  "original_model_main_scene_instantiated": true,
+  "optional_bridge_archive_http_smoke": "pass",
+  "source_worktree_modified": false
+}
