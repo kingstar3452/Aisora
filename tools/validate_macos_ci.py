@@ -25,7 +25,18 @@ EDITOR_SHA = '30630f3e9b11e10b35c1f90ba8814185dcec43fae1a48345159be7552c64bfe8'
 
 
 def command(args, output, required=True, timeout=180):
-    result = subprocess.run([str(x) for x in args], cwd=ROOT, capture_output=True, text=True, timeout=timeout)
+    print('::notice title=Native validation stage::' + output.name, flush=True)
+    try:
+        result = subprocess.run([str(x) for x in args], cwd=ROOT, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        parts = [error.stdout or '', error.stderr or '']
+        text = ''.join(x.decode(errors='replace') if isinstance(x, bytes) else x for x in parts)
+        text += '\nTIMEOUT after ' + str(timeout) + ' seconds: ' + output.name
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(text)
+        detail = text[-28000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+        print('::error title=Native validation timeout::' + detail, flush=True)
+        raise SystemExit('Native validation timed out: ' + output.name)
     text = result.stdout + result.stderr
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text)
@@ -106,6 +117,12 @@ def validate(archive):
     result, text = command(['/usr/sbin/spctl', '--assess', '--type', 'execute', '--verbose=2', quarantined], work / 'quarantine-assessment.log', required=False, timeout=60)
     report['assessment_policy'] = status.strip()
     report['quarantine_assessment'] = {'exit': result.returncode, 'output': text.strip(), 'note': 'CI policy result only; ad-hoc signing is not Developer ID or notarization. No Finder trust or user-Mac success is inferred.'}
+    report['validation_logs'] = {name: (work / name).read_text() for name in [
+        'main-arch.log', 'helper-arch.log', 'bundle-signature.log',
+        'signature-details.log', 'native-release-headless.log',
+        'native-packed-autonomy.log', 'native-render-body.log',
+        'native-render-face.log', 'corruption-rejection.log']}
+    report['native_go_log'] = (work.parent / 'native-go.log').read_text()
     (work / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))
 
