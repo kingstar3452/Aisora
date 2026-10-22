@@ -1,12 +1,14 @@
 # Phase 6 performance candidate — publication held
 
-**Work in progress: two rendering trials were rejected; autonomy preference integration is being validated.** This document will be completed from retained measurements before preparing the release candidate. No installed Mac application is changed. rc.1 remains a draft, and rc.2 requires fresh approval before publication.
+**Work in progress: rendering and cursor scheduling trials were rejected; the accepted autonomy candidate is being measured.** This document will be completed from retained measurements before preparing the release candidate. No installed Mac application is changed. rc.1 remains a draft, and rc.2 requires fresh approval before publication.
 
 ## Preserved quality and compatibility
 
 The original VRM, every body/gesture animation, skeleton update cadence, expressions, full-detail face, textures, material quality, mouth amplitude envelope, bridge protocol, browser extension and user-data locations are preserved. The Low/Balanced face keeps rc.1's full LOD and facial lighting. High retains original MToon materials and 2× MSAA. Adaptive settings remain opt-in; the benchmark disables adaptation equally for all revisions to measure identical requested quality. Existing background-first adaptation and conversation resolution protection remain available in the app.
 
 The opaque-background trial was reverted: longer actual Linux standalone idle repeats had median mean/P95/P99 48.54/92.51/155.10 ms versus rc.1 44.32/73.90/106.40 ms. Although isolated renderer A/B samples favored it, the application-level regression was unacceptable. Original background blending/crossfades are restored. A second trial using import-verified solid texture shaders was also reverted after three repeated Low screen comparisons worsened idle/speaking/listening means despite pixel equivalence. Original character shaders and VRM import settings are restored. Rest-pose IK reuses the pelvis/arm-parent FK snapshot and uses orthonormal inverses for its normalized quaternion bases. No animation step, contact correction or background effect is removed. The F3 overlay adds median/P99 data to its existing bounded 120-frame history and refresh-time sort.
+
+The additional Voice cursor scheduling guard was also reverted after the 36-run input comparison showed worse mean/tail aggregates. It skipped unused hit-testing during conversations, but no reliable end-to-end benefit was demonstrated. The requested configurable autonomy defaults remain; proactive Voice is unavailable and only local text/events are implemented. These feature workloads are recorded separately from the original 59-case matrix.
 
 ## Profiling and rejected experiments
 
@@ -18,7 +20,7 @@ The headless stage microbenchmark runs all three versions three times, 330 warmu
 
 ## Repeated comparison method
 
-Sources: previous working repair **bf2aee817f26da62a03187f9363580f57f71aeec**, updater **5ca43c50751a278ba5bfce462df147fc67cfffc8**, and optimization runtime **ddda53669d08e56aeca8ac96d1551c9aaf968ff5**. Each is imported in its own source archive. Every process uses the same external harness and case catalogue; source/runtime/harness fingerprints are recorded. No concurrent renderers or builds run during measurement.
+Sources: previous working repair **bf2aee817f26da62a03187f9363580f57f71aeec**, updater **5ca43c50751a278ba5bfce462df147fc67cfffc8**, and accepted runtime **90a9cdedcba89982350a2e1a9147b6a415764a77** (requested autonomy preferences plus conservative suppression for unknown paired Voice status; the cursor scheduling experiment was reverted). Each is imported in its own source archive. Every process uses the same external harness and case catalogue; source/runtime/harness fingerprints are recorded. No concurrent renderers or builds run during measurement.
 
 Environment: official Godot 4.6.3 Compatibility, Linux x86_64, Xvfb 1920×1080, Mesa 25.0.7 llvmpipe LLVM 19.1.7, Dummy audio, LP_NUM_THREADS=2. The environment reports five Xeon Platinum 8573C logical CPUs with a four-core cgroup quota. This is a shared software-rendering environment, not an Intel Mac GPU test. Physical GPU utilization, hardware VRAM pressure, power draw and authenticated Voice latency are unavailable.
 
