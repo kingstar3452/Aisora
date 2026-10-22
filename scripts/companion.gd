@@ -17,6 +17,15 @@ const WorldCycle = preload("res://scripts/world_cycle.gd")
 const FrameDiagnostics = preload("res://scripts/frame_diagnostics.gd")
 const UpdateClient=preload("res://scripts/update_client.gd")
 const UpdatePanel=preload("res://scripts/update_panel.gd")
+const Autonomy=preload("res://scripts/autonomy.gd")
+const MouseAwareness=preload("res://scripts/mouse_awareness.gd")
+var autonomy: AisoraAutonomy=Autonomy.new()
+var mouse_awareness: AisoraMouseAwareness=MouseAwareness.new()
+var autonomy_status: Label
+var autonomy_text: Label
+var _autonomy_text_seconds: float=0.
+var _autonomy_clock: float=0.
+
 const BackgroundBudget=preload("res://scripts/background_budget.gd")
 
 var updater: AisoraUpdateClient
@@ -141,6 +150,9 @@ var _diagnostic_clock: float = 0.0
 
 func _ready() -> void:
 	settings.load(settings_path)
+	autonomy.load_settings(settings)
+	autonomy.state_changed.connect(_save)
+	autonomy.dialogue_requested.connect(_autonomy_event)
 	_backup_phase5_settings()
 	fps_limit = clampi(int(settings.get_value("display", "fps", 30)), 15, 60)
 	zoom = clampf(float(settings.get_value("display", "distance", 3.2)), 1.6, 4.0)
@@ -192,6 +204,7 @@ func _ready() -> void:
 	_update_camera()
 	_apply_stage_mode()
 	get_viewport().size_changed.connect(_place_character)
+	get_window().mouse_exited.connect(mouse_awareness.reset)
 	get_viewport().size_changed.connect(_update_ground_guide)
 	illustrated.scenery_changed.connect(_world_image_changed)
 	_update_world(true)
@@ -325,6 +338,12 @@ func _build_ui() -> void:
 	diagnostics_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	diagnostics_label.visible = diagnostics_visible
 	root.add_child(diagnostics_label)
+	autonomy_text=_label("",16)
+	autonomy_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	autonomy_text.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	autonomy_text.offset_left=24;autonomy_text.offset_right=-24;autonomy_text.offset_top=-80;autonomy_text.offset_bottom=-16
+	autonomy_text.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	root.add_child(autonomy_text)
 	_build_settings(root)
 	# Technical status lives inside the collapsed settings, never over the normal scene.
 	var settings_box: VBoxContainer=settings_panel.get_child(0).get_child(0)
@@ -413,6 +432,7 @@ func _build_settings(root: Control) -> void:
 	action_status=_label("15 standing actions + standing sleep/wake.
 Use the Phase 6 controls below for calibrated walking, seat/floor rest and personality poses. Unrestricted roaming and 360° turns remain unsupported.",12,Color("b9c8d9"))
 	action_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(action_status)
+	_build_autonomy_settings(box)
 	_build_ground_settings(box)
 	_build_scenery_settings(box,root)
 	_slider(box, "Camera distance", 1.6, 4.0, 0.05, zoom, func(value: float): zoom = value; _update_camera(); _save())
@@ -467,6 +487,7 @@ func _slider(box: VBoxContainer, title: String, minimum: float, maximum: float, 
 
 func _save() -> void:
 	if not _settings_writable:return
+	autonomy.save_settings(settings)
 	settings.set_value("phase6","version",1)
 	settings.set_value("behavior","enabled",behavior.enabled);settings.set_value("behavior","interval_min",behavior.interval_min);settings.set_value("behavior","interval_max",behavior.interval_max);settings.set_value("behavior","weights",behavior.weights)
 	settings.set_value("personality","intensity",personality_intensity);settings.set_value("personality","weights",personality_weights)
@@ -545,6 +566,7 @@ func _process(delta: float) -> void:
 		rms = (sin(elapsed * 9.0) * 0.5 + 0.5) * 0.15
 	character.mouth = envelope.update(rms, audio_fresh, delta)
 	character.motion.conversation_active=voice_active or bridge.session_may_be_active or bridge.command_pending() or envelope.speaking or manual_state in [1,2,3]
+	_update_autonomy(delta)
 	ambience.advance(illustrated.displayed_slot,weather_mode,character.motion.conversation_active,delta)
 	character.ground.paused=character.motion.conversation_active
 	_update_rest_camera()
@@ -1067,3 +1089,62 @@ func _backup_phase5_settings() -> void:
 	if FileAccess.file_exists(settings_backup_path):return
 	_settings_writable=DirAccess.copy_absolute(ProjectSettings.globalize_path(settings_path),ProjectSettings.globalize_path(settings_backup_path))==OK
 	if not _settings_writable:push_warning("Previous settings could not be backed up. Preferences will remain in memory; the existing file is preserved.")
+
+func _autonomy_context() -> Dictionary:
+	return {"scene":"imported_image" if stage_mode==0 else "procedural_park","environment":illustrated.displayed_slot if stage_mode==0 else "procedural_park","time_of_day":cycle.local_slot(),"weather":weather_mode,"effects":{"petals":illustrated.petals.visible and illustrated.petals.multimesh.visible_instance_count>0,"rain":illustrated.weather.rain.visible,"fog":illustrated.weather.fog.visible,"branches":illustrated.branches[0].visible or illustrated.branches[1].visible},"animation":character.body.desired if character.body.active else (character.ground.action if character.ground.active else (character.motion.gesture if not character.motion.gesture.is_empty() else "idle")),"state":Character.STATE_NAMES[character.state].to_lower(),"conversation":character.motion.conversation_active,"voice_uncertain":bridge.session_may_be_active or bridge.command_pending(),"sleeping":character.motion.sleep_amount>.1 or character.body.active,"focused":performance.focused and not performance.minimized and not settings_panel.visible}
+
+func _update_autonomy(delta: float) -> void:
+	mouse_awareness.sample(delta,self)
+	character.motion.cursor_target=mouse_awareness.target
+	character.motion.cursor_eyes=autonomy.mouse_tracking
+	character.motion.cursor_head=autonomy.head_tracking
+	character.motion.cursor_smoothing=autonomy.smoothing
+	_autonomy_clock+=delta
+	if _autonomy_clock>=.25:
+		autonomy.advance(_autonomy_clock,_autonomy_context());_autonomy_clock=0.
+		if autonomy_status!=null and settings_panel.visible:autonomy_status.text=autonomy.status+"\n%d / %d interruptions today"%[autonomy.count,autonomy.daily_limit]
+	if _autonomy_text_seconds>0.:
+		_autonomy_text_seconds=maxf(0.,_autonomy_text_seconds-delta)
+		if _autonomy_text_seconds==0. or character.motion.conversation_active:
+			autonomy_text.text="";_autonomy_text_seconds=0.
+
+func _autonomy_event(event: Dictionary) -> void:
+	# Local signal only: no bridge transmission, prompt injection, TTS, or Voice start.
+	if event.has("text") and autonomy_text!=null:
+		autonomy_text.text=str(event.text);_autonomy_text_seconds=8.
+	if not character.motion.conversation_active and not character.body.active and not character.ground.active and character.motion.gesture.is_empty():character.play_gesture("curious_tilt" if event.trigger=="avatar_hover" else "smirk")
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:mouse_awareness.moved(event.position)
+	elif event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_LEFT and mouse_awareness.hovered and not settings_panel.visible:
+		autonomy.request_event("avatar_click",_autonomy_context())
+
+func _build_autonomy_settings(box: VBoxContainer) -> void:
+	box.add_child(_label("Aisora Autonomy",18))
+	autonomy_status=_label("Local text only · proactive Voice unavailable",12);autonomy_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(autonomy_status)
+	_check(box,"Proactive dialogue",autonomy.enabled,func(on: bool):autonomy.enabled=on;_save())
+	var modes: OptionButton=OptionButton.new()
+	for name_value: String in Autonomy.MODES:modes.add_item(name_value.capitalize())
+	modes.select(Autonomy.MODES.find(autonomy.mode));box.add_child(modes)
+	_check(box,"Mouse eye tracking · in this window",autonomy.mouse_tracking,func(on: bool):autonomy.mouse_tracking=on;_save())
+	_check(box,"Subtle head tracking",autonomy.head_tracking,func(on: bool):autonomy.head_tracking=on;_save())
+	_check(box,"Hover reactions",autonomy.hover_reactions,func(on: bool):autonomy.hover_reactions=on;_save())
+	_check(box,"Environmental comments",autonomy.environment_comments,func(on: bool):autonomy.environment_comments=on;_save())
+	_check(box,"Local text fallback",autonomy.local_text,func(on: bool):autonomy.local_text=on;_save())
+	_slider(box,"Cursor sensitivity",.1,1.,.05,autonomy.sensitivity,func(value: float):autonomy.sensitivity=value;_save())
+	_slider(box,"Cursor smoothing",1.,12.,.5,autonomy.smoothing,func(value: float):autonomy.smoothing=value;_save())
+	var cooldown: HSlider=_slider(box,"Dialogue cooldown (minutes)",10.,120.,1.,autonomy.cooldown_seconds/60.,func(value: float):autonomy.cooldown_seconds=value*60.;_save())
+	var limit: HSlider=_slider(box,"Maximum daily interruptions",0.,24.,1.,autonomy.daily_limit,func(value: float):autonomy.daily_limit=int(value);_save())
+	modes.item_selected.connect(func(index: int):autonomy.select_mode(Autonomy.MODES[index]);cooldown.value=autonomy.cooldown_seconds/60.;limit.value=autonomy.daily_limit;_save())
+	_check(box,"Quiet hours · Mac local clock",autonomy.quiet_hours,func(on: bool):autonomy.quiet_hours=on;_save())
+	_slider(box,"Quiet starts at hour",0.,23.,1.,autonomy.quiet_start,func(value: float):autonomy.quiet_start=int(value);_save())
+	_slider(box,"Quiet ends at hour",0.,23.,1.,autonomy.quiet_end,func(value: float):autonomy.quiet_end=int(value);_save())
+	_check(box,"Pause unsolicited dialogue",autonomy.paused,func(on: bool):autonomy.paused=on;_save())
+	_check(box,"Do Not Disturb",autonomy.dnd,func(on: bool):autonomy.dnd=on;_save())
+	_check(box,"I requested silence · until unchecked",autonomy.silence,func(on: bool):autonomy.silence=on;_save())
+	_check(box,"Greeting on launch",autonomy.greeting,func(on: bool):autonomy.greeting=on;_save())
+	_slider(box,"Scheduled chat hour (-1 off)",-1.,23.,1.,autonomy.scheduled_hour,func(value: float):autonomy.scheduled_hour=int(value);_save())
+	var topic: LineEdit=LineEdit.new();topic.placeholder_text="Optional saved follow-up topic (local only)";topic.max_length=240;topic.text=autonomy.follow_up
+	topic.text_changed.connect(func(value: String):autonomy.follow_up=value;autonomy._followed=false;_save());box.add_child(topic)
+	var copy: Button=Button.new();copy.text="Copy Aisora Project instructions";copy.pressed.connect(func():DisplayServer.clipboard_set(FileAccess.get_file_as_string("res://config/aisora-personality.md")));box.add_child(copy)
+	var help: Label=_label("Paste into your Aisora ChatGPT Project instructions manually. Voice cannot be prompted automatically. No cursor data is shared; other apps and screen capture are not accessed.",12);help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(help)

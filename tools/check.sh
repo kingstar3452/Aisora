@@ -46,3 +46,8 @@ grep -Eq 'UPDATE TESTS: [1-9][0-9]* checks; 0 failures' .local/update-tests.log
 cat .local/performance-tests.log
 if grep -Eq 'SCRIPT ERROR|^ERROR:|^FAIL:' .local/performance-tests.log; then exit 1; fi
 grep -Eq 'PERFORMANCE TESTS: [1-9][0-9]* checks; 0 failures' .local/performance-tests.log
+
+./tools/run_godot.sh --headless --script res://tests/test_autonomy.gd > .local/autonomy-tests.log 2>&1
+cat .local/autonomy-tests.log
+if grep -Eq 'SCRIPT ERROR|^ERROR:|^FAIL:' .local/autonomy-tests.log; then exit 1; fi
+grep -Eq 'AUTONOMY TESTS: [1-9][0-9]* checks; 0 failures' .local/autonomy-tests.log

@@ -178,8 +178,9 @@ func tick(delta: float) -> void:
 			if not body.active:_write_rotation(index, rest_rotations[index] * Quaternion.from_euler(hair_offset))
 	# Eye motion stays at the full animation rate; only hair roots are sampled.
 	var roll: float=motion.personality_envelope if motion.gesture=="eye_roll" else 0.
-	_local_pose("LeftEye", Vector3(motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06))
-	_local_pose("RightEye", Vector3(motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06))
+	var cursor: Vector2=motion.cursor_gaze if motion.cursor_eyes else Vector2.ZERO
+	_local_pose("LeftEye", Vector3(cursor.y*.035+motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06-cursor.x*.06))
+	_local_pose("RightEye", Vector3(cursor.y*.035+motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06-cursor.x*.06))
 	if profiling_enabled:sampled_at=_profile_stamp(3,sampled_at)
 	blink_wait -= delta
 	if blink_wait <= 0.0 and blink_time < 0.0:

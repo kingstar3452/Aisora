@@ -43,6 +43,11 @@ var weights: Dictionary = {IDLE: 1.0, LISTENING: 0.0, THINKING: 0.0, TALKING: 0.
 var layers: Dictionary = {}
 var poses: Dictionary = {}
 var hips_offset: Vector3 = Vector3.ZERO
+var cursor_target: Vector2=Vector2.ZERO
+var cursor_gaze: Vector2=Vector2.ZERO
+var cursor_eyes: bool=false
+var cursor_head: bool=false
+var cursor_smoothing: float=5.
 var gaze: Vector2 = Vector2.ZERO
 var gaze_target: Vector2 = Vector2.ZERO
 var gaze_wait: float = 0.0
@@ -130,6 +135,8 @@ func tick(delta: float, audio_mouth: float) -> Dictionary:
 	var talk: float = float(weights[TALKING]) * awake
 	var idle: float = float(weights[IDLE]) * awake
 	_update_targets(dt)
+	var cursor_allowed: bool=not conversation_active and not locomotion_active and gesture.is_empty() and sleep_amount<.01 and mode==IDLE
+	cursor_gaze=cursor_gaze.lerp(cursor_target if cursor_allowed else Vector2.ZERO,1.-exp(-dt*cursor_smoothing))
 	breath_speed = lerpf(breath_speed, lerpf(breath_target, 0.72, sleep_amount), 1.0 - exp(-dt * 1.5))
 	breath_phase += dt * breath_speed*micro_speed
 	var breath: float = sin(breath_phase)
@@ -152,6 +159,8 @@ func tick(delta: float, audio_mouth: float) -> Dictionary:
 	for side: String in ["Left","Right"]:
 		for chain: Array in FINGER_CHAINS[side]:layers.posture[chain[0]]=Vector3(0,0,-.12 if side=="Left" else .12)
 	layers.gaze["Head"] = Vector3(gaze.y * 0.07, gaze.x * 0.16, gaze.x * 0.035)
+	if cursor_head:
+		layers.gaze["Head"]+=Vector3(cursor_gaze.y*.035,-cursor_gaze.x*.09,0.)
 	layers.gaze["Neck"] = Vector3(0.0, gaze.x * 0.055, sin(time * 0.41 + phase) * 0.025 * intensity * awake)
 	var speech: float = clampf(audio_mouth * 2.0, 0.0, 1.0) * talk * intensity
 	layers.speech["Head"] = Vector3(sin(time * 2.5 + phase) * 0.045 * speech, sin(time * 1.7) * 0.035 * speech, sin(time * 1.2) * 0.025 * speech)

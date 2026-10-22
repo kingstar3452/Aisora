@@ -81,3 +81,5 @@ Set `GODOT_BIN` if Godot is not installed in `/Applications/Godot.app` or on PAT
 This cloud task already has an isolated checkout; use it directly rather than creating a worktree. No export templates are needed to run in the editor. To export a Mac application later, install matching Godot export templates and review macOS signing/microphone behavior for your own distribution. Keep the bridge external; point an exported viewer at its pairing file with `AISORA_BRIDGE_CONFIG=/absolute/path/to/bridge.json`.
 
 See [third-party notices](docs/THIRD_PARTY.md). The character's embedded VRM license metadata remains intact and separate from the importer license.
+
+Autonomy candidate: [preferred defaults, controls and Voice limitations](docs/AUTONOMY.md). Publication remains held pending the performance report and approval.
