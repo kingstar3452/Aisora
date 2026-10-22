@@ -1102,10 +1102,10 @@ func _update_autonomy(delta: float) -> void:
 	_autonomy_clock+=delta
 	if _autonomy_clock>=.25:
 		autonomy.advance(_autonomy_clock,_autonomy_context());_autonomy_clock=0.
-		if autonomy_status!=null and settings_panel.visible:autonomy_status.text=autonomy.status+"\n%d / %d interruptions today"%[autonomy.count,autonomy.daily_limit]
+		if autonomy_status!=null and settings_panel.visible:autonomy_status.text="Proactive Voice unavailable · local text only\n"+autonomy.status+"\n%d / %d interruptions today"%[autonomy.count,autonomy.daily_limit]
 	if _autonomy_text_seconds>0.:
 		_autonomy_text_seconds=maxf(0.,_autonomy_text_seconds-delta)
-		if _autonomy_text_seconds==0. or character.motion.conversation_active:
+		if _autonomy_text_seconds==0. or character.motion.conversation_active or not autonomy.enabled or autonomy.mode=="quiet" or autonomy.paused or autonomy.dnd or autonomy.silence:
 			autonomy_text.text="";_autonomy_text_seconds=0.
 
 func _autonomy_event(event: Dictionary) -> void:
