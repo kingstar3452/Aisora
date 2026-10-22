@@ -3,6 +3,7 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_dir"
 python3 -m unittest discover -s tests -p 'test_*.py' -v
+python3 tools/prepare_updater.py --test
 node --test tests/*.test.cjs
 for script in browser-controller/extension/*.js; do node --check "$script"; done
 mkdir -p .local
@@ -36,3 +37,7 @@ cat .local/phase6-tests.log
 if grep -Eq 'SCRIPT ERROR|^ERROR:|^FAIL:' .local/phase6-tests.log; then exit 1; fi
 grep -Eq 'PHASE 6 TESTS: [1-9][0-9]* checks; 0 failures' .local/phase6-tests.log
 python3 tests/live_bridge_smoke.py
+./tools/run_godot.sh --headless --script res://tests/test_updates.gd > .local/update-tests.log 2>&1
+cat .local/update-tests.log
+if grep -Eq 'SCRIPT ERROR|^ERROR:|^FAIL:' .local/update-tests.log; then exit 1; fi
+grep -Eq 'UPDATE TESTS: [1-9][0-9]* checks; 0 failures' .local/update-tests.log

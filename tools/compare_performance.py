@@ -9,6 +9,38 @@ import os
 from pathlib import Path
 import statistics
 import subprocess
+import resource
+import threading
+import time
+
+
+def measured_run(command, project, environment):
+    before=resource.getrusage(resource.RUSAGE_CHILDREN)
+    started=time.monotonic()
+    run=subprocess.Popen(command,cwd=project,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+    stop=threading.Event()
+    rss=[]
+    def sample():
+        while not stop.is_set():
+            try:
+                for line in Path(f'/proc/{run.pid}/status').read_text().splitlines():
+                    if line.startswith('VmRSS:'):rss.append(int(line.split()[1])*1024)
+            except (OSError,ValueError):
+                pass
+            stop.wait(.1)
+    worker=threading.Thread(target=sample,daemon=True);worker.start()
+    try:
+        stdout,stderr=run.communicate(timeout=180)
+    except subprocess.TimeoutExpired:
+        run.kill();run.communicate();raise
+    finally:
+        stop.set();worker.join()
+    wall=time.monotonic()-started
+    after=resource.getrusage(resource.RUSAGE_CHILDREN)
+    cpu=after.ru_utime+after.ru_stime-before.ru_utime-before.ru_stime
+    return run.returncode,stdout+stderr,{'whole_process_wall_seconds':wall,'whole_process_cpu_seconds':cpu,
+        'whole_process_cpu_percent':100*cpu/wall,'peak_sampled_rss_bytes':max(rss,default=0),
+        'note':'CPU includes startup/warmup; one logical core = 100%. RSS sampled at 10 Hz via Linux procfs, not GPU memory. Not an iMac forecast.'}
 
 
 def main():
@@ -24,6 +56,7 @@ def main():
     parser.add_argument('--presets', nargs='+', choices=['low', 'balanced', 'high'], default=['low', 'balanced', 'high'])
     parser.add_argument('--scales', nargs='+', type=float, default=[1.0], help='Current-version 3D scales; baseline is always native.')
     parser.add_argument('--output', type=Path, default=Path('.local/performance-comparison.json'))
+    parser.add_argument('--coordinator',action='store_true',help='Include application coordinator with simulated Voice; no real browser.')
     args = parser.parse_args()
     if args.runs < 1 or args.frames < 60:
         parser.error('Use at least one run and 60 measured frames.')
@@ -51,15 +84,15 @@ def main():
                 command += ['--script', str(harness), '--', f'--mode={mode}',
                             f'--label={label}-{repetition+1}', f'--quality={quality}',
                             f'--frames={args.frames}', f'--state={args.state}', f'--render-scale={scale}', f'--part={args.part}']
-                run = subprocess.run(command, cwd=project, env=environment,
-                                     capture_output=True, text=True, timeout=180)
-                log = run.stdout + run.stderr
+                if args.coordinator:command+=['--coordinator=true']
+                code,log,process_usage=measured_run(command,project,environment)
                 (log_dir / f'{label}-{repetition+1}-{mode}.log').write_text(log)
                 records = [line.removeprefix('AISORA_BENCH ') for line in log.splitlines()
                            if line.startswith('AISORA_BENCH ')]
-                if run.returncode or not records or 'SCRIPT ERROR' in log or '\nERROR:' in log:
+                if code or not records or 'SCRIPT ERROR' in log or '\nERROR:' in log:
                     raise SystemExit(f'{label} {mode} failed; see {log_dir}')
                 result = json.loads(records[-1])
+                result['process_usage']=process_usage
                 result['repetition'] = repetition + 1
                 result['case'] = label
                 samples.append(result)
@@ -80,6 +113,7 @@ def main():
                          'resolution': '960x600', 'ui_and_network': False,
                          'summary': 'Median of per-run statistics, not pooled frame percentiles.'},
               'medians': medians, 'samples': samples}
+    output['method']['coordinator_simulated_voice']=args.coordinator
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(output, indent=2)+'\n')
     print(json.dumps(medians, indent=2))

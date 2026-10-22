@@ -13,13 +13,29 @@ bundle = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bundle)
 
 
-def fixture():
+def helper_fixture():
+    identifier=b'local.aisora.companion.updater\0'
+    offset=44+len(identifier)
+    length=offset+32
+    signature_size=20+length
+    code=(struct.pack('<8I',0xfeedfacf,0x01000007,3,2,2,32,0,0)+struct.pack('<4I',0x24,16,0x000d0000,0x000d0000)+struct.pack('<4I',0x1d,16,4096,signature_size)).ljust(4096,b'\0')
+    cd=struct.pack('>9I',0xfade0c02,length,0x20001,2,offset,44,0,1,4096)+bytes([32,2,0,12])+bytes(4)+identifier+hashlib.sha256(code).digest()
+    return code+struct.pack('>5I',0xfade0cc0,signature_size,1,0,20)+cd,hashlib.sha256(cd).digest()[:20]
+
+
+def fixture(updater=False):
     """A tiny structural Mach-O signature fixture; never a native launch test."""
-    info = plistlib.dumps({'CFBundleIdentifier': 'local.aisora.companion', 'CFBundleExecutable': 'Aisora'})
+    metadata={'CFBundleIdentifier': 'local.aisora.companion', 'CFBundleExecutable': 'Aisora'}
+    if updater:metadata.update(AisoraUpdaterProtocol='1',AisoraVersion='6.1.0-rc.1')
+    info = plistlib.dumps(metadata)
     pack = b'test project resource'
     notices = b'engine notices'
     files = {'Resources/Aisora.pck': {'hash2': hashlib.sha256(pack).digest()},
              'Resources/Godot-NOTICES.txt': {'hash2': hashlib.sha256(notices).digest()}}
+    if updater:
+        helper,cdhash=helper_fixture()
+        files['Helpers/AisoraUpdater']={'cdhash':cdhash,'requirement':'cdhash H"'+cdhash.hex()+'"'}
+        files['Resources/Updater-NOTICES.txt']={'hash2':hashlib.sha256(b'Go notices').digest()}
     resources = plistlib.dumps({'files2': files})
     identifier = b'local.aisora.companion\0'
     hash_offset = 44 + len(identifier) + 3 * 32
@@ -32,11 +48,15 @@ def fixture():
     cd += bytes([32, 2, 0, 12]) + struct.pack('>I', 0) + identifier
     cd += hashlib.sha256(resources).digest() + bytes(32) + hashlib.sha256(info).digest() + hashlib.sha256(code).digest()
     signature = struct.pack('>5I', 0xfade0cc0, signature_size, 1, 0, 20) + cd
-    return {'Aisora.app/Contents/Info.plist': info,
+    result={'Aisora.app/Contents/Info.plist': info,
             'Aisora.app/Contents/MacOS/Aisora': code + signature,
             'Aisora.app/Contents/_CodeSignature/CodeResources': resources,
             'Aisora.app/Contents/Resources/Aisora.pck': pack,
             'Aisora.app/Contents/Resources/Godot-NOTICES.txt': notices}
+    if updater:
+        result['Aisora.app/Contents/Helpers/AisoraUpdater']=helper
+        result['Aisora.app/Contents/Resources/Updater-NOTICES.txt']=b'Go notices'
+    return result
 
 
 class BundleTests(unittest.TestCase):
@@ -51,7 +71,7 @@ class BundleTests(unittest.TestCase):
             for name, data in self.files.items():
                 item = zipfile.ZipInfo(name)
                 item.create_system = 3
-                item.external_attr = (0o100755 if name.endswith('/MacOS/Aisora') and executable else 0o100644) << 16
+                item.external_attr = (0o100755 if (name.endswith('/MacOS/Aisora') or name.endswith('/Helpers/AisoraUpdater')) and executable else 0o100644) << 16
                 z.writestr(item, data)
 
     def reject(self, pattern):
@@ -116,6 +136,26 @@ class BundleTests(unittest.TestCase):
         value = plistlib.loads(self.files[path]);value['CFBundleIdentifier'] = 'org.godotengine.godot'
         self.files[path] = plistlib.dumps(value)
         self.reject('Incorrect app identity')
+
+    def test_nested_updater_seal_verified_without_apple_trust_claim(self):
+        self.files=fixture(updater=True)
+        self.write()
+        report=bundle.verify_zip(self.archive)
+        self.assertEqual(report['nested_code_verified'][0]['code_directories'][0]['identifier'],'local.aisora.companion.updater')
+        self.assertFalse(report['gatekeeper_assessment_performed'])
+
+    def test_nested_updater_corruption_rejected(self):
+        self.files=fixture(updater=True)
+        path='Aisora.app/Contents/Helpers/AisoraUpdater'
+        value=bytearray(self.files[path]);value[1000]^=1;self.files[path]=bytes(value)
+        self.reject('code page 0 digest mismatch')
+
+    def test_missing_nested_updater_rejected(self):
+        self.files=fixture(updater=True)
+        del self.files['Aisora.app/Contents/Helpers/AisoraUpdater']
+        self.write()
+        with self.assertRaises((bundle.BundleError,KeyError)):
+            bundle.verify_zip(self.archive)
 
 
 if __name__ == '__main__':

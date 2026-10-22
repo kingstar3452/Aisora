@@ -44,6 +44,7 @@ var world_energy: float=1.0
 var appearance_brightness: float=1.0
 var appearance_contrast: float=1.0
 var reduced_detail: bool=true
+var face_clarity: bool=true
 var material_slots: Array[Dictionary] = []
 var _fast_materials: Dictionary = {}
 var _face_meshes: Array[MeshInstance3D] = []
@@ -175,9 +176,10 @@ func tick(delta: float) -> void:
 				var strength: float = animation_intensity * (1.0 - motion.sleep_amount * 0.8)
 				hair_offset = Vector3(sin(time * 1.4 + i * 0.7) * 0.032, 0.0, sin(time * 1.1 + i) * 0.04) * strength
 			if not body.active:_write_rotation(index, rest_rotations[index] * Quaternion.from_euler(hair_offset))
-		var roll: float=motion.personality_envelope if motion.gesture=="eye_roll" else 0.
-		_local_pose("LeftEye", Vector3(motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06))
-		_local_pose("RightEye", Vector3(motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06))
+	# Eye motion stays at the full animation rate; only hair roots are sampled.
+	var roll: float=motion.personality_envelope if motion.gesture=="eye_roll" else 0.
+	_local_pose("LeftEye", Vector3(motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06))
+	_local_pose("RightEye", Vector3(motion.gaze.y * 0.025-roll*.16, 0.0, motion.gaze.x * 0.065+roll*.06))
 	if profiling_enabled:sampled_at=_profile_stamp(3,sampled_at)
 	blink_wait -= delta
 	if blink_wait <= 0.0 and blink_time < 0.0:
@@ -291,6 +293,7 @@ func set_visual_quality(preset: int) -> void:
 			var base_color: Color = original.get_shader_parameter("_Color")
 			material.set_shader_parameter("_Color",_lit_color(base_color))
 			material.set_shader_parameter("shade_strength", 0.10 if preset == 0 else 0.16)
+			material.set_shader_parameter("face_clarity",1. if face_clarity and slot.mesh.name=="Face" else 0.)
 			_apply_material_appearance(material)
 			_fast_materials[cache_key] = material
 		slot.mesh.set_surface_override_material(slot.surface, _fast_materials[cache_key])
@@ -312,7 +315,15 @@ func set_lighting(value: float) -> void:
 func _apply_mesh_detail() -> void:
 	for mesh: MeshInstance3D in model.find_children("*","MeshInstance3D",true,false):
 		# Use the importer's existing index LODs; never replace the facial mesh/expressions.
-		mesh.lod_bias=([0.4,0.7,1.0][clampi(visual_quality,0,2)] if reduced_detail and mesh.name!="Face" else 1.0)
+		mesh.lod_bias=128. if mesh.name=="Face" and face_clarity else ([0.4,0.7,1.0][clampi(visual_quality,0,2)] if reduced_detail and mesh.name!="Face" else 1.0)
+
+func set_face_clarity(on: bool) -> void:
+	if face_clarity==on:return
+	face_clarity=on;_apply_mesh_detail()
+	for slot: Dictionary in material_slots:
+		for preset in 2:
+			var key: String="%d:%d"%[slot.original.get_instance_id(),preset]
+			if _fast_materials.has(key):_fast_materials[key].set_shader_parameter("face_clarity",1. if on and slot.mesh.name=="Face" else 0.)
 
 func set_detail_reduction(on: bool) -> void:
 	if reduced_detail==on:return

@@ -11,6 +11,7 @@ var active: bool=false
 var minimized: bool=false
 var max_edge: int=1280
 var _source_mask: int=1
+var conversation_detail: bool=false
 
 func setup(source: Camera3D) -> void:
  source_camera=source;_source_mask=source.cull_mask
@@ -18,6 +19,7 @@ func setup(source: Camera3D) -> void:
 
 func configure(value: float,illustrated: bool,hidden: bool=false) -> void:
  value=clampf(value,.5,1.)
+ if conversation_detail:value=maxf(value,.9)
  var needed: bool=illustrated and value<.99
  minimized=hidden
  if needed and viewport==null:_build()

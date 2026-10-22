@@ -23,7 +23,7 @@ def require(condition, message):
         raise BundleError(message)
 
 
-def _code_directories(binary, info, resources):
+def _code_directories(binary, info, resources, bundle=True):
     require(len(binary) >= 32 and binary[:4] == bytes.fromhex('cffaedfe'), 'Not a thin 64-bit little-endian Mach-O')
     require(struct.unpack_from('<I', binary, 4)[0] == 0x01000007, 'Executable is not Intel x86_64')
     ncmds, commands_size = struct.unpack_from('<II', binary, 16)
@@ -72,7 +72,7 @@ def _code_directories(binary, info, resources):
         require(0 < page_power <= 24 and limit == start, 'Unexpected code page size or unsigned executable range')
         page_size = 1 << page_power
         require(pages == (limit + page_size - 1) // page_size, 'Incorrect executable page count')
-        require(special >= 3 and 44 <= hash_offset - special * hash_size and hash_offset + pages * hash_size <= len(cd), 'Invalid signature hash table')
+        require(special >= (3 if bundle else 0) and 44 <= hash_offset - special * hash_size and hash_offset + pages * hash_size <= len(cd), 'Invalid signature hash table')
         require(44 <= ident_offset < hash_offset - special * hash_size, 'Invalid signing identifier offset')
         identifier = cd[ident_offset:hash_offset - special * hash_size].split(b'\0', 1)[0].decode('utf-8')
         require(identifier == info['CFBundleIdentifier'], 'Signing identifier does not match Aisora bundle identity')
@@ -81,7 +81,7 @@ def _code_directories(binary, info, resources):
         for i in range(pages):
             expected = cd[hash_offset + i * hash_size:hash_offset + (i + 1) * hash_size]
             require(expected == digest(binary[i * page_size:min((i + 1) * page_size, limit)]), f'Executable code page {i} digest mismatch')
-        special_data = {1: info['_raw'], 3: resources}
+        special_data = {1: info['_raw'], 3: resources} if bundle else {}
         for i in (2, 5, 7):
             if i in slots:
                 special_data[i] = slots[i]
@@ -91,7 +91,7 @@ def _code_directories(binary, info, resources):
                 require(any(expected) and expected == digest(special_data[i]), f'Special slot {i} seal mismatch (Info.plist=1, resources=3)')
             else:
                 require(not any(expected), f'Unverified nonzero special slot {i}')
-        directories.append({'identifier': identifier, 'ad_hoc': True, 'digest': algorithm, 'code_pages_verified': pages, 'special_slots_verified': len(special_data)})
+        directories.append({'identifier': identifier, 'ad_hoc': True, 'digest': algorithm, 'code_pages_verified': pages, 'special_slots_verified': len(special_data), 'cdhash':hashlib.new(algorithm,cd).digest()[:20].hex()})
     require(directories, 'No valid CodeDirectory')
     return directories, minimum_os
 
@@ -128,8 +128,19 @@ def verify_zip(path):
         files = sealed.get('files2', {})
         require('Resources/Aisora.pck' in files, 'Character/project resource pack is not sealed')
         checked = 0
+        nested = []
         for relative, record in files.items():
-            require(isinstance(record, dict) and isinstance(record.get('hash2'), bytes), 'Unverified nested code or resource hash')
+            require(isinstance(record, dict), 'Invalid resource record')
+            if relative=='Helpers/AisoraUpdater' and 'cdhash' in record:
+                helper=prefix+relative
+                require(archive.getinfo(helper).external_attr>>16&0o111,'Updater execute permission is missing')
+                helper_dirs,helper_minimum=_code_directories(read(helper),{'CFBundleIdentifier':'local.aisora.companion.updater'},b'',bundle=False)
+                require(isinstance(record['cdhash'],bytes) and record['cdhash'].hex() in [item['cdhash'] for item in helper_dirs], 'Nested updater cdhash mismatch')
+                requirement=record.get('requirement','')
+                require(isinstance(requirement,str) and (requirement=='cdhash H"'+record['cdhash'].hex()+'"' or requirement=='identifier "local.aisora.companion.updater"'),'Unexpected nested updater signing requirement')
+                nested.append({'path':relative,'architecture':'x86_64','minimum_os':helper_minimum,'code_directories':helper_dirs})
+                continue
+            require(isinstance(record.get('hash2'), bytes), 'Unverified nested code or resource hash')
             value = read(prefix + relative)
             require(hashlib.sha256(value).digest() == record['hash2'], f'Resource seal mismatch: {relative}')
             if 'hash' in record:
@@ -143,8 +154,12 @@ def verify_zip(path):
             require(relative in exceptions or relative in files, f'Unsealed file added to signed app: {relative}')
         notice = prefix + 'Resources/Godot-NOTICES.txt' if prefix + 'Resources/Godot-NOTICES.txt' in names else 'Godot-NOTICES.txt'
         require(read(notice), 'Missing engine notices')
+        if info.get('AisoraUpdaterProtocol')=='1':
+            require(len(nested)==1 and info.get('AisoraVersion'),'Missing sealed updater or application version')
+            require(read(prefix+'Resources/Updater-NOTICES.txt'),'Missing updater notices')
     return {'architecture': 'x86_64', 'zip_crc': 'pass', 'executable_permission': 'pass', 'minimum_os': minimum,
             'signature_type': 'ad-hoc', 'code_directories': directories, 'resource_hashes_verified': checked,
+            'nested_code_verified':nested,
             'info_plist_and_resource_seals': 'pass', 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
             'bytes': path.stat().st_size, 'developer_id_verified': False, 'notarization_verified': False,
             'gatekeeper_assessment_performed': False, 'native_macos_launch_performed': False}

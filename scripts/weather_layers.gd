@@ -6,6 +6,7 @@ var mode: String="clear"
 var strength: float=0.5
 var quality: int=0
 var low_power: bool=false
+var budget: float=1.
 var rain_enabled: bool=true
 var clouds_enabled: bool=true
 var fog_enabled: bool=true
@@ -54,12 +55,13 @@ func apply() -> void:
  var wet: bool=mode in ["light_rain","heavy_rain"] and rain_enabled
  var maximum: int=([64,96,128][clampi(quality,0,2)] if mode=="heavy_rain" else [24,36,48][clampi(quality,0,2)])
  if low_power:maximum=24 if mode=="heavy_rain" else 12
+ maximum=roundi(maximum*budget)
  rain.multimesh.visible_instance_count=roundi(maximum*amount) if wet else 0
  rain.visible=wet and amount>0
- clouds.visible=clouds_enabled and mode in ["cloudy","light_rain","heavy_rain"] and amount>0
- fog.visible=fog_enabled and mode=="misty" and amount>0
+ clouds.visible=clouds_enabled and mode in ["cloudy","light_rain","heavy_rain"] and amount>0 and budget>.6
+ fog.visible=fog_enabled and mode=="misty" and amount>0 and budget>.6
  fireflies.multimesh.visible_instance_count=6 if low_power or quality==0 else 12
- fireflies.visible=nighttime and night_effects and mode in ["clear","windy"] and amount>0
+ fireflies.visible=nighttime and night_effects and mode in ["clear","windy"] and amount>0 and budget>.3
  for material: ShaderMaterial in materials:material.set_shader_parameter("strength",amount)
  resize(extent)
 

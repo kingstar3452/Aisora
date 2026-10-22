@@ -10,6 +10,8 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -50,6 +52,8 @@ def main():
         raise SystemExit('Generate engine notices before exporting.')
     if sys.platform != 'darwin' and not args.rcodesign.is_file():
         raise SystemExit('Run python3 tools/prepare_macos_signer.py before a Linux export.')
+    subprocess.run([sys.executable,str(repo / 'tools/prepare_updater.py'),'--build'],check=True)
+    app_version=re.search(r'^config/version="([^"]+)"$',(repo/'project.godot').read_text(),re.M)[1]
     with tempfile.TemporaryDirectory(prefix='aisora-export-', dir=output.parent) as scratch:
         work = Path(scratch)
         raw = work / 'raw.zip'
@@ -66,14 +70,25 @@ def main():
             raise SystemExit('Unexpected bundle identity.')
         # Finish ALL content changes before signing. Never append files to the app later.
         (app / 'Contents/Resources/Godot-NOTICES.txt').write_bytes(notices.read_bytes())
+        (app/'Contents/Helpers').mkdir(exist_ok=True)
+        helper=app/'Contents/Helpers/AisoraUpdater'
+        shutil.copyfile(repo/'.local/updater/AisoraUpdater',helper)
+        helper.chmod(0o755)
+        shutil.copyfile(repo/'.local/updater/Updater-NOTICES.txt',app/'Contents/Resources/Updater-NOTICES.txt')
+        info.update(AisoraVersion=app_version,AisoraUpdaterProtocol='1',
+                    CFBundleShortVersionString=app_version.split('-')[0],
+                    CFBundleVersion=app_version.split('-')[0],LSMinimumSystemVersion='13.0')
+        info['AisoraSourceCommit']=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
+        (app/'Contents/Info.plist').write_bytes(plistlib.dumps(info))
         executable = app / 'Contents/MacOS/Aisora'
         executable.chmod(0o755)
         if sys.platform == 'darwin':
+            subprocess.run(['/usr/bin/codesign','--force','--sign','-','--identifier','local.aisora.companion.updater',str(helper)],check=True)
             subprocess.run(['/usr/bin/codesign', '--force', '--sign', '-', str(app)], check=True)
             subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(app)], check=True)
         else:
             subprocess.run([str(args.rcodesign), '--config-file', os.devnull, 'sign',
-                            '--timestamp-url', 'none', str(app)], check=True)
+                            '--timestamp-url', 'none','--binary-identifier','Contents/Helpers/AisoraUpdater:local.aisora.companion.updater', str(app)], check=True)
         candidate = work / 'finished.zip'
         with zipfile.ZipFile(candidate, 'w', compression=zipfile.ZIP_DEFLATED) as package:
             for path in sorted(app.rglob('*')):

@@ -15,6 +15,7 @@ func summary(samples: Array[float]) -> Dictionary:
 func run() -> void:
 	var mode: String = str(options.get("mode", "cpu"))
 	var idle: bool = str(options.get("state","talking")) == "idle"
+	var coordinator: bool=str(options.get("coordinator","false"))=="true"
 	var app: Node = load("res://scenes/companion.tscn").instantiate()
 	app.settings_path = "user://benchmark-no-preferences-%d.cfg" % Time.get_ticks_usec()
 	# Fix the scene before _ready: do not benchmark an incidental local-clock fade.
@@ -31,6 +32,10 @@ func run() -> void:
 	app.character.motion = load("res://scripts/motion_layers.gd").new(2026)
 	app.character.rng.seed = 2026
 	app.character.set_state(0 if idle else 3)
+	if coordinator:
+		app.manual_state=-1
+		app.bridge.state={"voice":"inactive" if idle else "active","capturing":not idle,"rms":0.,"connected":true,"pending":false,"error":""}
+		app.bridge.session_may_be_active=not idle
 	app.character.low_power = false
 	var action: String=str(options.get("action", ""))
 	if not action.is_empty():
@@ -85,7 +90,10 @@ func run() -> void:
 			var start: int = Time.get_ticks_usec()
 			if part != "park":
 				if action.begins_with("walk") and not app.character.ground.active:app.character.ground.play(action,app.character)
-				app.character.mouth = 0.0 if idle else 0.25 + sin(i * 0.15) * 0.20
+				if coordinator:
+					app.bridge.state.rms=0. if idle else .06+sin(i*.15)*.04
+					app._process(1./30.);Engine.max_fps=0
+				else:app.character.mouth = 0.0 if idle else 0.25 + sin(i * 0.15) * 0.20
 				app.character.tick(1.0 / 30.0)
 			if part != "character": app.park._process(1.0 / 30.0)
 			await process_frame

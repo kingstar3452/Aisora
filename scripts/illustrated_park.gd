@@ -18,6 +18,7 @@ var shader_materials: Array[ShaderMaterial]=[]
 var enabled: bool=true
 var intensity: float=.65
 var density: float=.45
+var effect_budget: float=1.
 var quality: int=0
 var low_power: bool=false
 var parallax: bool=false
@@ -193,13 +194,24 @@ func apply_performance() -> void:
   if fade_progress<1.:
    var decoded: Dictionary=Images.decode(_target_path,texture_edge())
    if decoded.has("image"):incoming.texture=ImageTexture.create_from_image(decoded.image)
- var amount: float=0. if intensity<=0. else clampf(density,0,1)
+ var amount: float=0. if intensity<=0. else clampf(density,0,1)*effect_budget
  petals.multimesh.visible_instance_count=mini(roundi(40*amount),12 if low_power else [24,32,40][clampi(quality,0,2)])
  for material: ShaderMaterial in shader_materials:material.set_shader_parameter("intensity",intensity)
  for branch: TextureRect in branches:branch.visible=show_branches and intensity>0.
  if not foreground_path.is_empty():branches[1].visible=false
  shadow.material.set_shader_parameter("opacity",shadow_opacity);shadow.material.set_shader_parameter("softness",shadow_softness)
- weather.quality=quality;weather.low_power=low_power;weather.apply();_update_processing();resize()
+ weather.quality=quality;weather.low_power=low_power;weather.budget=effect_budget;weather.apply();_update_processing();resize()
+
+func set_effect_budget(value: float) -> void:
+ value=clampf(value,0.,1.)
+ if is_equal_approx(effect_budget,value):return
+ effect_budget=value
+ # No texture decoding or scene rebuilding when adaptive decoration changes.
+ var amount: float=clampf(density,0.,1.)*effect_budget if intensity>0. else 0.
+ petals.multimesh.visible_instance_count=mini(roundi(40*amount),12 if low_power else [24,32,40][clampi(quality,0,2)])
+ for branch: TextureRect in branches:branch.visible=show_branches and intensity>0. and effect_budget>.3
+ if not foreground_path.is_empty():branches[1].visible=false
+ weather.budget=effect_budget;weather.apply()
 
 func _update_processing() -> void:set_process(_worker!=null or (enabled and not suspended and (fade_progress<1. or (parallax and intensity>0.))))
 

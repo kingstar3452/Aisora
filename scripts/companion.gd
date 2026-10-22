@@ -15,6 +15,16 @@ const ReducedRenderer=preload("res://scripts/character_renderer.gd")
 const AdaptiveQuality=preload("res://scripts/adaptive_quality.gd")
 const WorldCycle = preload("res://scripts/world_cycle.gd")
 const FrameDiagnostics = preload("res://scripts/frame_diagnostics.gd")
+const UpdateClient=preload("res://scripts/update_client.gd")
+const UpdatePanel=preload("res://scripts/update_panel.gd")
+const BackgroundBudget=preload("res://scripts/background_budget.gd")
+
+var updater: AisoraUpdateClient
+var background_budget: AisoraBackgroundBudget=BackgroundBudget.new()
+var face_clarity: bool=true
+var voice_face_detail: bool=true
+var _conversation_detail: bool=false
+var _face_clock: float=0.
 
 var _rest_camera_active: bool=false
 var _rest_camera_base: Transform3D
@@ -170,6 +180,12 @@ func _ready() -> void:
 	bridge = Bridge.new()
 	bridge.pairing_path=str(settings.get_value("bridge","pairing_path",""))
 	add_child(bridge)
+	updater=UpdateClient.new()
+	updater.voice_guard=func():return _voice_blocks_update()
+	updater.bridge_path=func():return _update_bridge_path()
+	updater.health_guard=func():return character!=null and character.skeleton!=null and is_instance_valid(settings_panel) and Engine.get_frames_drawn()>30
+	updater.quit_for_update.connect(func():_save();get_tree().quit())
+	add_child(updater)
 	var guide_layer: CanvasLayer=CanvasLayer.new();guide_layer.layer=5;add_child(guide_layer)
 	ground_guide=GroundGuide.new();guide_layer.add_child(ground_guide);ground_guide.visible=false
 	_build_ui()
@@ -346,6 +362,9 @@ func _build_settings(root: Control) -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.add_child(box)
 	box.add_child(_label("Performance & presentation", 18))
+	var updates: VBoxContainer=UpdatePanel.new();updates.client=updater;box.add_child(updates)
+	_check(box,"Clear face and mouth lighting",face_clarity,func(on: bool):face_clarity=on;character.set_face_clarity(on);_save())
+	_check(box,"Protect face resolution during Voice",voice_face_detail,func(on: bool):voice_face_detail=on;_configure_character_renderer();_save())
 	state_select = OptionButton.new()
 	for item in ["Auto · 0", "Idle · 1", "Listening · 2", "Thinking · 3", "Talking · 4", "Sleeping · 5"]:
 		state_select.add_item(item)
@@ -470,6 +489,7 @@ func _save() -> void:
 	settings.set_value("display","clean",clean_presentation)
 	settings.set_value("performance","reduced_detail",reduced_detail)
 	settings.set_value("performance","render_scale",render_scale);settings.set_value("performance","adaptive",adaptive.enabled)
+	settings.set_value("performance","face_clarity",face_clarity);settings.set_value("performance","voice_face_detail",voice_face_detail)
 	settings.set_value("bridge","pairing_path",bridge.pairing_path)
 	settings.set_value("animation","random_actions",scheduler_enabled)
 	settings.set_value("animation","interval_min",idle_interval_min)
@@ -516,7 +536,7 @@ func _process(delta: float) -> void:
 	if diagnostics_visible and _diagnostic_clock >= 0.5:
 		_diagnostic_clock = 0.0
 		var stats: Dictionary = diagnostics.snapshot()
-		diagnostics_label.text = "%.1f FPS · %.1f ms / frame\nP95 %.1f ms · Engine process %.2f ms\n%d draw calls · cap %d · %s" % [stats.fps,stats.mean_ms,stats.p95_ms,Performance.get_monitor(Performance.TIME_PROCESS)*1000.0,Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),Engine.max_fps,["Low","Balanced","High"][quality]]+"\n3D %s · %d%% · %s"%[str(reduced_renderer.viewport.size) if reduced_renderer.active else "native",roundi(adaptive.effective_scale*100),"adaptive" if adaptive.enabled else "manual"]
+		diagnostics_label.text = "%.1f FPS · %.1f ms / frame\nP95 %.1f ms · Engine process %.2f ms\n%d draw calls · cap %d · %s" % [stats.fps,stats.mean_ms,stats.p95_ms,Performance.get_monitor(Performance.TIME_PROCESS)*1000.0,Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),Engine.max_fps,["Low","Balanced","High"][quality]]+"\n3D %s · %d%% · %s"%[str(reduced_renderer.viewport.size) if reduced_renderer.active else "native",roundi((reduced_renderer.scale_factor if reduced_renderer.active else 1.)*100),"adaptive" if adaptive.enabled else "manual"]
 	var voice_active: bool = bridge.state.get("voice", "unknown") == "active"
 	var audio_fresh: bool = bool(bridge.state.get("capturing", false)) and (voice_active or manual_state == Character.State.TALKING)
 	var rms: float = float(bridge.state.get("rms", 0.0))
@@ -549,14 +569,19 @@ func _process(delta: float) -> void:
 		var behavior_action: String=behavior.tick(delta,{"voice":character.motion.conversation_active,"ready":manual_state<0 and character.state==Character.State.IDLE and not _world_pending and not character.ground.active and not character.body.active and character.motion.gesture.is_empty() and illustrated.fade_progress>=1. and illustrated._worker==null and performance.focused and not performance.minimized,"ground":character.ground.calibrated,"rest":character.body.enabled,"period":cycle.local_slot()})
 		if not behavior_action.is_empty():_perform_behavior(behavior_action)
 	performance.fps_limit = fps_limit
-	Engine.max_fps = performance.frame_cap(character.motion.is_resting())
+	Engine.max_fps = performance.frame_cap(character.motion.is_resting(),character.motion.conversation_active)
 	var hidden: bool = not performance.focused or performance.minimized
 	park.suspended = hidden or stage_mode==0
 	illustrated.suspended = hidden
 	character.backgrounded = hidden
-	if reduced_renderer!=null and reduced_renderer.minimized!=performance.minimized:reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
-	if adaptive.observe(delta,Engine.max_fps,not hidden and not settings_panel.visible and not character.motion.is_resting() and illustrated.fade_progress>=1. and illustrated._worker==null):
-		reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
+	var conversation_detail: bool=voice_face_detail and character.motion.conversation_active
+	if reduced_renderer!=null and (reduced_renderer.minimized!=performance.minimized or _conversation_detail!=conversation_detail):_configure_character_renderer()
+	var eligible: bool=not hidden and not settings_panel.visible and not character.motion.is_resting() and illustrated.fade_progress>=1. and illustrated._worker==null
+	background_budget.observe(delta,Engine.max_fps,adaptive.enabled and eligible)
+	illustrated.set_effect_budget(minf(background_budget.factor,.5 if character.motion.conversation_active else 1.))
+	if adaptive.observe(delta,Engine.max_fps,eligible and background_budget.factor<=0. and not conversation_detail):_configure_character_renderer()
+	_face_clock+=delta
+	if _face_clock>=.1:_face_clock=0.;_update_face_clearance()
 	var resting: bool = character.motion.is_resting()
 	if park.resting != resting:
 		park.resting = resting
@@ -616,14 +641,16 @@ func _toggle_fullscreen() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 func _apply_quality() -> void:
+	background_budget.reset()
 	get_viewport().msaa_3d = Viewport.MSAA_2X if quality == 2 and not performance.low_power else Viewport.MSAA_DISABLED
 	if character != null:
 		character.set_visual_quality(0 if performance.low_power else quality)
 		character.set_lighting(light_energy)
 
 func _apply_performance_settings() -> void:
-	if reduced_renderer!=null:reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
+	_configure_character_renderer()
 	if character != null:
+		character.set_face_clarity(face_clarity)
 		character.motion.personality_intensity=personality_intensity
 		character.motion.set_context(illustrated.displayed_slot if illustrated!=null else "sunset",weather_mode)
 		character.motion.configure_scheduler(idle_interval_min,idle_interval_max,scheduler_enabled,action_weights)
@@ -665,7 +692,7 @@ func _apply_stage_mode() -> void:
 	park.suspended=stage_mode==0 or not performance.focused or performance.minimized
 	stage_environment.background_mode=Environment.BG_CANVAS if stage_mode==0 else Environment.BG_SKY
 	stage_environment.background_canvas_max_layer=-1
-	if reduced_renderer!=null:reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
+	_configure_character_renderer()
 	illustrated.enabled=stage_mode==0
 	illustrated.apply_performance()
 	_place_character()
@@ -763,6 +790,38 @@ func _load_world_settings() -> void:
 	decorative_branches=bool(settings.get_value("world","branches",not str(settings.get_value("environment","foreground_path","")).is_empty()));reduced_detail=bool(settings.get_value("performance","reduced_detail",true))
 	render_scale=clampf(float(settings.get_value("performance","render_scale",1.)),.5,1.)
 	adaptive.enabled=bool(settings.get_value("performance","adaptive",false));adaptive.reset(render_scale)
+	face_clarity=bool(settings.get_value("performance","face_clarity",true))
+	voice_face_detail=bool(settings.get_value("performance","voice_face_detail",true))
+
+func _voice_blocks_update() -> bool:
+	return bridge!=null and (bridge.state.get("voice","")=="active" or bridge.session_may_be_active or bridge.command_pending() or envelope.speaking or (character!=null and character.motion.conversation_active))
+
+func _update_bridge_path() -> String:
+	if bridge==null:return ""
+	var path: String=bridge.pairing_path
+	if path.is_empty():path=OS.get_environment("AISORA_BRIDGE_CONFIG")
+	if path.is_empty() and FileAccess.file_exists("res://.local/bridge.json"):path="res://.local/bridge.json"
+	return ProjectSettings.globalize_path(path) if not path.is_empty() else ""
+
+func _configure_character_renderer() -> void:
+	if reduced_renderer==null:return
+	_conversation_detail=voice_face_detail and character!=null and character.motion.conversation_active
+	reduced_renderer.conversation_detail=_conversation_detail
+	reduced_renderer.max_edge=1920 if _conversation_detail else 1280
+	reduced_renderer.configure(adaptive.effective_scale,stage_mode==0,performance.minimized)
+
+func _update_face_clearance() -> void:
+	if illustrated==null or character==null or camera==null:return
+	if not face_clarity:
+		illustrated.petals.material.set_shader_parameter("face_center",Vector2(-2.,-2.));return
+	var head: int=int(character.bone_indices.get("Head",-1))
+	if head<0:return
+	var point: Vector3=character.skeleton.to_global(character.skeleton.get_bone_global_pose(head).origin)+Vector3(0,.025,.04)*character.scale.x
+	var extent: Vector2=get_viewport().get_visible_rect().size
+	var center: Vector2=camera.unproject_position(point)/extent
+	var size_value: Vector2=(camera.unproject_position(point+Vector3(.12,.15,0)*character.scale.x)/extent-center).abs()
+	illustrated.petals.material.set_shader_parameter("face_center",center)
+	illustrated.petals.material.set_shader_parameter("face_radius",size_value.max(Vector2(.015,.025)))
 
 func illustrated_weather_modes() -> Array[String]:return ["clear","cloudy","light_rain","heavy_rain","windy","misty"]
 
@@ -869,8 +928,8 @@ func _build_world_settings(box: VBoxContainer) -> void:
 	_slider(box,"Contact shadow opacity",0,1,.05,shadow_opacity,func(value: float):shadow_opacity=value;_apply_performance_settings();_save())
 	_slider(box,"Contact shadow softness",.25,1.25,.05,shadow_softness,func(value: float):shadow_softness=value;_apply_performance_settings();_save())
 	_check(box,"Reduced body/hair detail · native LOD",reduced_detail,func(on: bool):reduced_detail=on;character.set_detail_reduction(on);_save())
-	_slider(box,"3D render resolution (1 = native)",.5,1,.05,render_scale,func(value: float):render_scale=value;adaptive.reset(value);reduced_renderer.configure(value,stage_mode==0,performance.minimized);_save())
-	_check(box,"Adapt 3D resolution if persistently slow",adaptive.enabled,func(on: bool):adaptive.enabled=on;adaptive.reset(render_scale);reduced_renderer.configure(render_scale,stage_mode==0,performance.minimized);_save())
+	_slider(box,"3D render resolution (1 = native)",.5,1,.05,render_scale,func(value: float):render_scale=value;adaptive.reset(value);background_budget.reset();_configure_character_renderer();_save())
+	_check(box,"Adapt background first, then 3D if slow",adaptive.enabled,func(on: bool):adaptive.enabled=on;adaptive.reset(render_scale);background_budget.reset();_configure_character_renderer();_save())
 	clean_toggle=_check(box,"Clean presentation · H (Tab restores)",clean_presentation,func(on: bool):_set_clean(on))
 
 func _load_ground_region() -> void:

@@ -1,5 +1,7 @@
 # Aisora
 
+The updater-enabled **6.1.0-rc.1 candidate** adds reviewed GitHub Release discovery, staged native installation/rollback and conversation-first facial clarity. See [one-time installation, future updates and Gatekeeper limits](docs/UPDATES.md). Publication awaits user approval; existing Mac installations are untouched.
+
 A lightweight Godot 4 anime companion over an illustrated sakura background or in the optional 3D park for an Intel Mac. Godot presents your existing VRM character; native ChatGPT Voice in your normal browser handles the conversation. No paid API, TTS engine, second language model, or memory service is included.
 
 **Tested engine: Godot 4.6.3, Compatibility renderer.** The uploaded project advertised `4.7 / Forward Plus`; it had no scenes, scripts, or engine binary pin. This implementation explicitly selects the tested stable version and OpenGL Compatibility for the 2017 iMac.

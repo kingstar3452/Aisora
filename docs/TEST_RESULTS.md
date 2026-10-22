@@ -1,5 +1,11 @@
 # Implementation and validation record
 
+## Updater/facial clarity candidate — 22 October 2026
+
+The updater-enabled 6.1.0-rc.1 candidate passes **555 core checks**: 32 Python, 28 JavaScript, 35 original model, 58 Phase 2, 38 Phase 3, 117 Phase 4, 93 Phase 5, 103 Phase 6, 15 HTTP/bridge fixtures and 36 new update/face/preference checks. The dependency-free Go updater adds **12 test groups** with corruption, traversal, permissions, interrupted download/journal, duplicate task, version/channel, Voice and idempotent restoration cases, plus `go vet`. Transaction exchanges in these Linux tests are injected fixtures, not the native macOS syscall.
+
+Real Godot Compatibility rendering passes **24 retained Phase 6 checks plus 6 new facial checks**. Fixed-pose open/closed mouth renders from the actual VRM differ visibly on Low/Balanced/High (30/32/30 pixels at the deliberately full-body 960×600 frame). The Linux app export contains Intel main/helper executables and independently verified nested code/resource seals. Native macOS signing/Gatekeeper, quarantine, atomic exchange, LaunchServices/health and authenticated Voice remain local acceptance items. See [updater safety and setup](UPDATES.md) and [measured frame-time/CPU/RSS comparison](PERFORMANCE_UPDATER.md); there is no claim of consistent 30 FPS on the iMac.
+
 ## macOS signing repair
 
 The reported damaged download matches the published checksum. The old app has correct Intel executable permissions and matching machine-code page hashes but lacks an Aisora CodeResources seal/Info.plist binding. Basic ZIP/resource checks missed that packaging defect. The repair adds complete-app ad-hoc signing after all content changes, an independent code-page/special-slot/resource hash verifier, atomic output replacement, and 11 packaging regression tests. Full runtime functionality is unchanged. The repaired candidate passes 516 core checks and 24 real Compatibility rendering checks against its extracted pack in Linux, plus code-page/special-slot/resource hash validation. Native codesign, Gatekeeper and macOS launch tests remain unperformed. See [repair findings, test scope and remaining Apple trust requirements](MACOS_LAUNCH_REPAIR.md). Linux consistency checks are not native Gatekeeper or launch tests.
