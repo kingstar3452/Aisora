@@ -33,7 +33,19 @@ jobs:
           cat .local/macos-ci/import.log
           if grep -Eq 'SCRIPT ERROR|^ERROR:' .local/macos-ci/import.log; then exit 1; fi
       - name: Native Go tests, including real directory exchange
-        run: python3 tools/prepare_updater.py --test
+        run: |
+          python3 - <<'PYTHON'
+          import subprocess, sys
+          from pathlib import Path
+          result = subprocess.run([sys.executable, 'tools/prepare_updater.py', '--test'], capture_output=True, text=True)
+          text = result.stdout + result.stderr
+          Path('.local/macos-ci/native-go.log').write_text(text)
+          print(text)
+          if result.returncode:
+              detail = text[-28000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Native Go validation details::' + detail)
+          raise SystemExit(result.returncode)
+          PYTHON
       - name: Rebuild ad-hoc Intel app with the existing export workflow
         run: python3 tools/export_macos.py --output .local/macos-ci/Aisora-phase6-macos.zip
       - name: Native signature, runtime, resource and quarantine checks

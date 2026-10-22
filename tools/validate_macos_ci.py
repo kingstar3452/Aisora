@@ -32,6 +32,8 @@ def command(args, output, required=True, timeout=180):
     print(output.name, 'exit', result.returncode, flush=True)
     if required and (result.returncode or 'SCRIPT ERROR' in text or '\nERROR:' in text or '\nFAIL:' in text):
         print(text)
+        detail = text[-28000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+        print('::error title=Native Mac validation details::' + detail)
         raise SystemExit('Native validation failed: ' + output.name)
     return result, text
 
