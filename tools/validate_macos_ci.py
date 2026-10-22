@@ -108,14 +108,49 @@ def validate(archive):
     print(json.dumps(report, indent=2))
 
 
+def stage_draft(archive):
+    # Owner-reviewable staging only. The tag is deliberately not a production
+    # update version and the release is always created as a private draft.
+    repo = os.environ.get('GITHUB_REPOSITORY', '')
+    if repo != 'kingstar3452/Aisora':
+        raise SystemExit('Refusing to stage into an unexpected repository')
+    run_id = os.environ.get('GITHUB_RUN_ID', '')
+    if not run_id.isdigit(): raise SystemExit('Missing native validation run ID')
+    tag = 'aisora-native-validation-' + run_id
+    report_path = ROOT / '.local/macos-ci/validation/report.json'
+    report = json.loads(report_path.read_text())
+    source = report['source_commit']
+    sha = hashlib.sha256(archive.read_bytes()).hexdigest()
+    notes = report_path.with_name('draft-notes.md')
+    notes.write_text('UNPUBLISHED native Intel macOS CI rebuild; publication remains held.\n\n'
+        + 'Runtime code is based on 2142475 (requested autonomy defaults and actual-rig direction checks). '
+        + 'Source commit: ' + source + '.\n\n'
+        + 'Ad-hoc signed only: no Developer ID or notarization. Native CI does not certify '
+        + 'Ventura on a 2017 iMac, an Internet Finder launch, or authenticated ChatGPT Voice. '
+        + 'Keep the installed working app until review and local acceptance. The full performance report is still a release gate.\n\n'
+        + 'Archive SHA-256: `' + sha + '`\n')
+    exists = subprocess.run(['gh', 'release', 'view', tag, '--repo', repo, '--json', 'isDraft,assets'], capture_output=True, text=True)
+    if exists.returncode == 0:
+        previous = json.loads(exists.stdout)
+        if not previous['isDraft']: raise SystemExit('Refusing to alter a published release')
+        if previous.get('assets'): raise SystemExit('Existing validation draft has assets; refusing replacement')
+    else:
+        subprocess.run(['gh', 'release', 'create', tag, '--repo', repo, '--target', source, '--draft', '--prerelease', '--title', 'Unpublished native Mac validation candidate', '--notes-file', str(notes)], check=True)
+    subprocess.run(['gh', 'release', 'upload', tag, str(archive), str(archive.with_suffix(archive.suffix + '.sha256')), str(report_path), '--repo', repo], check=True)
+    state = subprocess.check_output(['gh', 'release', 'view', tag, '--repo', repo, '--json', 'isDraft,url'], text=True)
+    if not json.loads(state)['isDraft']: raise SystemExit('Validation release must remain a draft')
+    print('Owner-reviewable DRAFT only:', state)
+
+
 def main():
     if sys.platform != 'darwin' or platform.machine() != 'x86_64':
         raise SystemExit('Run on an Intel macOS validation machine')
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['bootstrap', 'validate'])
+    parser.add_argument('action', choices=['bootstrap', 'validate', 'stage-draft'])
     parser.add_argument('--archive', type=Path)
     args = parser.parse_args()
     if args.action == 'bootstrap': bootstrap()
-    else: validate(args.archive.resolve())
+    elif args.action == 'validate': validate(args.archive.resolve())
+    else: stage_draft(args.archive.resolve())
 
 if __name__ == '__main__': main()

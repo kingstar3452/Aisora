@@ -4,7 +4,7 @@ on:
     branches: [ci/aisora-native-validation]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: aisora-native-validation-${{ github.ref }}
   cancel-in-progress: true
@@ -38,4 +38,8 @@ jobs:
         run: python3 tools/export_macos.py --output .local/macos-ci/Aisora-phase6-macos.zip
       - name: Native signature, runtime, resource and quarantine checks
         run: python3 tools/validate_macos_ci.py validate --archive .local/macos-ci/Aisora-phase6-macos.zip
-      # Intentionally no artifact upload, release creation or publication.
+      - name: Stage owner-reviewable private draft (never publish)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/validate_macos_ci.py stage-draft --archive .local/macos-ci/Aisora-phase6-macos.zip
+      # No upload-artifact action and no release publication. Draft assets remain private.
