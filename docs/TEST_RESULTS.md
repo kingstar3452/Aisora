@@ -1,5 +1,13 @@
 # Implementation and validation record
 
+## Autonomy preferences candidate — 22 October 2026 (publication held)
+
+The preferred-default integration passes **1,318 core automated checks**, plus the retained **12 Go updater test groups and go vet**. The additional 42 Godot checks exercise Talkative/mouse/hover/environment/quiet-hours defaults, saved overrides, interruption history, quiet ranges, daily caps/cooldowns, Voice/uncertain-session suppression, actual-rig eye transforms and local environment metadata. The live Python bridge suite passes 15 checks with browser/audio fixtures; no protocol or extension changes were needed. All 42 autonomy checks also pass using the final Mac ZIP's actual project pack, including the bundled copyable personality document.
+
+The same pack passes **24 articulated-body/framing checks and 6 facial checks** using Godot Compatibility on Linux llvmpipe. Actual open/closed mouth images differ by 29/32/29 pixels at Low/Balanced/High in the full-body 960×600 scene. The four character shader sources remain byte-identical to rc.1. A separate frozen-reference image comparison passed all 33 checks in an independent repeat; the first pass is retained with one seated-frame pixel difference (25/255 in one channel, one of 576,000 pixels), despite identical source. This is recorded as a reproducibility limitation, not discarded as a performance outlier. No shader quality reduction is claimed.
+
+A fresh official-template Godot 4.6.3 Intel Mac ZIP was built from source **691ffa5**, with independently verified main/helper x86_64 architecture, executable permissions, ZIP CRC, code pages, Info/resource seals and nested helper signature. It is ad-hoc only, unpublished and not a certified native launch. Linux pack/player testing cannot establish macOS Gatekeeper, Archive Utility, authenticated Voice or 2017 Intel iMac performance. See [autonomy controls and manual Project configuration](AUTONOMY.md). The ongoing performance report remains a release gate; this feature commit does not authorize publication or replace the installed app.
+
 ## Updater/facial clarity candidate — 22 October 2026
 
 The updater-enabled 6.1.0-rc.1 candidate passes **555 core checks**: 32 Python, 28 JavaScript, 35 original model, 58 Phase 2, 38 Phase 3, 117 Phase 4, 93 Phase 5, 103 Phase 6, 15 HTTP/bridge fixtures and 36 new update/face/preference checks. The dependency-free Go updater adds **12 test groups** with corruption, traversal, permissions, interrupted download/journal, duplicate task, version/channel, Voice and idempotent restoration cases, plus `go vet`. Transaction exchanges in these Linux tests are injected fixtures, not the native macOS syscall.
