@@ -1,0 +1,27 @@
+name: Native Mac Low performance (no publication)
+on:
+  push:
+    branches: [ci/aisora-native-performance]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  benchmark:
+    runs-on: macos-15-intel
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install pinned official Godot 4.6.3 editor
+        run: python3 tools/validate_macos_ci.py bootstrap
+      - name: Native Low state comparison, original eight cases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AISORA_REVIEW_DRAFT: aisora-native-validation-39843983384
+        run: python3 tools/run_macos_performance.py
+      # Only evidence is appended to the existing owner-private draft.
+      # No release publication, new binary, or public artifact upload.
