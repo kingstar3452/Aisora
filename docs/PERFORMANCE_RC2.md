@@ -1,12 +1,12 @@
 # Phase 6 performance candidate — publication held
 
-**Work in progress: the repeated renderer comparison is running.** This document will be completed from retained measurements before preparing the release candidate. No installed Mac application is changed. rc.1 remains a draft, and rc.2 requires fresh approval before publication.
+**Work in progress: two rendering trials were rejected; autonomy preference integration is being validated.** This document will be completed from retained measurements before preparing the release candidate. No installed Mac application is changed. rc.1 remains a draft, and rc.2 requires fresh approval before publication.
 
 ## Preserved quality and compatibility
 
 The original VRM, every body/gesture animation, skeleton update cadence, expressions, full-detail face, textures, material quality, mouth amplitude envelope, bridge protocol, browser extension and user-data locations are preserved. The Low/Balanced face keeps rc.1's full LOD and facial lighting. High retains original MToon materials and 2× MSAA. Adaptive settings remain opt-in; the benchmark disables adaptation equally for all revisions to measure identical requested quality. Existing background-first adaptation and conversation resolution protection remain available in the app.
 
-Candidate changes avoid framebuffer blending for a fully opaque base illustration. Images with alpha and the incoming crossfade retain the original blending. Opacity is checked when an image is installed, never each frame. Both background materials receive the same ambient/pause parameters. Rest-pose IK reuses the pelvis/arm-parent FK snapshot and uses orthonormal inverses for its normalized quaternion bases. No animation step, contact correction or background effect is removed. The F3 overlay adds median/P99 data to its existing bounded 120-frame history and refresh-time sort.
+The opaque-background trial was reverted: longer actual Linux standalone idle repeats had median mean/P95/P99 48.54/92.51/155.10 ms versus rc.1 44.32/73.90/106.40 ms. Although isolated renderer A/B samples favored it, the application-level regression was unacceptable. Original background blending/crossfades are restored. A second trial using import-verified solid texture shaders was also reverted after three repeated Low screen comparisons worsened idle/speaking/listening means despite pixel equivalence. Original character shaders and VRM import settings are restored. Rest-pose IK reuses the pelvis/arm-parent FK snapshot and uses orthonormal inverses for its normalized quaternion bases. No animation step, contact correction or background effect is removed. The F3 overlay adds median/P99 data to its existing bounded 120-frame history and refresh-time sort.
 
 ## Profiling and rejected experiments
 

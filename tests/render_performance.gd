@@ -1,6 +1,5 @@
 extends SceneTree
-## Same frozen actual VRM pose; compare original blended background rendering
-## against the opaque fast path. Transparent images and incoming fades stay mixed.
+## Compare accepted shaders with frozen rc.1 references on the SAME actual VRM pose.
 var checks: int=0
 var failures: int=0
 var app: Node
@@ -13,10 +12,14 @@ func capture() -> Image:
 	await RenderingServer.frame_post_draw
 	return root.get_texture().get_image()
 func equivalent(label_value: String) -> void:
-	var current: Material=app.illustrated.background.material
-	app.illustrated.background.material=app.illustrated.ambient_material
+	# Compare current character shader programs with frozen rc.1 references.
+	# The accepted candidate leaves shader math unchanged; reject accidental drift.
+	var swaps: Array[Dictionary]=[]
+	for material: ShaderMaterial in app.character._fast_materials.values():
+		swaps.append({"material":material,"shader":material.shader})
+		material.shader=load("res://tests/reference_shaders/"+material.shader.resource_path.get_file())
 	var before: Image=await capture()
-	app.illustrated.background.material=current
+	for swap: Dictionary in swaps:swap.material.shader=swap.shader
 	var after: Image=await capture();var maximum: float=0.;var changed: int=0
 	for y in after.get_height():
 		for x in after.get_width():
@@ -56,8 +59,10 @@ func run() -> void:
 		await equivalent(slot+"-half-fade")
 		app.illustrated.incoming.visible=false;app.illustrated.incoming.texture=null;app.illustrated.fade_progress=1.
 	var transparent: Image=Image.create(16,16,false,Image.FORMAT_RGBA8);transparent.fill(Color(.2,.5,.8,.4))
-	app.illustrated._install_base(ImageTexture.create_from_image(transparent),transparent.detect_alpha()==Image.ALPHA_NONE)
+	app.illustrated.background.texture=ImageTexture.create_from_image(transparent)
 	check(app.illustrated.background.material==app.illustrated.ambient_material,"Transparent imports retain original alpha blending")
 	await equivalent("transparent-image")
+	app.reduced_renderer.configure(.65,true,false)
+	await equivalent("transparent-reduced-viewport")
 	app.free();DirAccess.remove_absolute(path)
 	print("PERFORMANCE VISUAL TESTS: ",checks," checks; ",failures," failures");quit(1 if failures else 0)

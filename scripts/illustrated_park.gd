@@ -45,8 +45,6 @@ var _pause_start: float=0.
 var _offset: float=0.
 var _clock: float=0.
 var _root: Control
-var opaque_material: ShaderMaterial
-var _incoming_opaque: bool=false
 var ambient_material: ShaderMaterial
 var _worker: Thread
 var _loading_slot: String=""
@@ -62,7 +60,7 @@ var _fade_from: String="sunset"
 func _ready() -> void:
  layer=-1;_offset=Time.get_ticks_msec()/1000.
  _root=Control.new();_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);_root.mouse_filter=Control.MOUSE_FILTER_IGNORE;_root.clip_contents=true;add_child(_root)
- background=_picture();background.texture=load("res://assets/illustrated/original_garden.svg");ambient_material=_shader("ambient");opaque_material=_shader("ambient_opaque");background.material=ambient_material;_root.add_child(background)
+ background=_picture();background.texture=load("res://assets/illustrated/original_garden.svg");ambient_material=_shader("ambient");background.material=ambient_material;_root.add_child(background)
  incoming=_picture();incoming.material=ambient_material;incoming.visible=false;_root.add_child(incoming)
  weather=Weather.new();_root.add_child(weather)
  shadow=TextureRect.new();shadow.texture=load("res://assets/illustrated/shadow.svg");shadow.mouse_filter=Control.MOUSE_FILTER_IGNORE;shadow.material=ShaderMaterial.new();shadow.material.shader=load("res://assets/illustrated/contact_shadow.gdshader");_root.add_child(shadow)
@@ -102,7 +100,7 @@ func _show_saved(slot: String) -> bool:
  if path.is_empty():return false
  var decoded: Dictionary=Images.decode(path,texture_edge())
  if decoded.has("error"):message=decoded.error;return false
- _install_base(ImageTexture.create_from_image(decoded.image),decoded.image.detect_alpha()==Image.ALPHA_NONE);displayed_slot=slot;displayed_path=path;_fade_from=slot;_texture_quality=0 if low_power else quality
+ background.texture=ImageTexture.create_from_image(decoded.image);displayed_slot=slot;displayed_path=path;_fade_from=slot;_texture_quality=0 if low_power else quality
  message="Displaying local %s image."%slot;return true
 
 func assign_time_image(slot: String,path: String,copy_to_user: bool=true) -> bool:
@@ -155,11 +153,7 @@ func select_slot(slot: String,seconds: float=8.,asynchronous: bool=true) -> bool
   _begin_fade(slot,path,decoded.image)
  return true
 
-func _install_base(texture: Texture2D,opaque: bool) -> void:
- background.texture=texture; background.material=opaque_material if opaque else ambient_material
-
 func _begin_fade(slot: String,path: String,image_value: Image) -> void:
- _incoming_opaque=image_value.detect_alpha()==Image.ALPHA_NONE
  incoming.texture=ImageTexture.create_from_image(image_value);incoming.modulate=Color(1,1,1,0);incoming.visible=true
  _target_slot=slot;_target_path=path;_fade_from=displayed_slot;fade_progress=0.;message="Crossfading to %s…"%slot;_update_processing()
 
@@ -196,10 +190,10 @@ func apply_performance() -> void:
   _texture_quality=effective
   if not displayed_path.is_empty():
    var decoded: Dictionary=Images.decode(displayed_path,texture_edge())
-   if decoded.has("image"):_install_base(ImageTexture.create_from_image(decoded.image),decoded.image.detect_alpha()==Image.ALPHA_NONE)
+   if decoded.has("image"):background.texture=ImageTexture.create_from_image(decoded.image)
   if fade_progress<1.:
    var decoded: Dictionary=Images.decode(_target_path,texture_edge())
-   if decoded.has("image"):incoming.texture=ImageTexture.create_from_image(decoded.image);_incoming_opaque=decoded.image.detect_alpha()==Image.ALPHA_NONE
+   if decoded.has("image"):incoming.texture=ImageTexture.create_from_image(decoded.image)
  var amount: float=0. if intensity<=0. else clampf(density,0,1)*effect_budget
  petals.multimesh.visible_instance_count=mini(roundi(40*amount),12 if low_power else [24,32,40][clampi(quality,0,2)])
  for material: ShaderMaterial in shader_materials:material.set_shader_parameter("intensity",intensity)
@@ -245,7 +239,7 @@ func _process(delta: float) -> void:
  if fade_progress<1.:
   fade_progress=minf(1.,fade_progress+maxf(0.,delta)/fade_duration);incoming.modulate.a=smoothstep(0.,1.,fade_progress)
   if fade_progress>=1.:
-   _install_base(incoming.texture,_incoming_opaque);incoming.texture=null;incoming.visible=false;displayed_slot=_target_slot;displayed_path=_target_path;_fade_from=displayed_slot;_target_slot=""
+   background.texture=incoming.texture;incoming.texture=null;incoming.visible=false;displayed_slot=_target_slot;displayed_path=_target_path;_fade_from=displayed_slot;_target_slot=""
    message="Displaying local %s image."%displayed_slot;scenery_changed.emit()
    if not _queued_slot.is_empty():
     var queued: String=_queued_slot;_queued_slot="";select_slot(queued,fade_duration)
