@@ -59,6 +59,7 @@ func run() -> void:
  check(app.mouse_awareness.hovered and app.mouse_awareness.target.length()<.01,"Projected avatar hover hits head")
  app.performance.focused=false;app.mouse_awareness.sample(.1,app);check(not app.mouse_awareness.hovered and app.mouse_awareness.target==Vector2.ZERO,"Focus loss clears tracking")
  var actual: Dictionary=app._autonomy_context();check(actual.scene=="imported_image" and actual.environment==app.illustrated.displayed_slot and actual.weather==app.weather_mode,"Environment reports real displayed state")
+ app.stage_mode=1;actual=app._autonomy_context();check(actual.scene=="procedural_park" and actual.weather=="clear" and not actual.effects.rain,"Fallback never fabricates image weather")
  check(FileAccess.get_file_as_string("res://config/aisora-personality.md").contains("feisty"),"Version-controlled personality available")
  app.free();DirAccess.remove_absolute(file)
  print("AUTONOMY TESTS: ",checks," checks; ",failures," failures");quit(1 if failures else 0)
