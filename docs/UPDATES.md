@@ -1,10 +1,10 @@
 # Updater-enabled Phase 6 — 6.1.0-rc.1
 
-This is a review candidate. Publication requires user approval. Development and Linux tests do not modify the currently installed Mac app.
+The [approved preview](https://github.com/kingstar3452/Aisora/releases/tag/v6.1.0-rc.1) is published. Native Mac acceptance is still required. Development and Linux tests do not modify the currently installed Mac app.
 
 ## One-time installation
 
-The old app has no updater, so one initial installation is necessary. After approval/publication, leave the working app in place, download the new Intel ZIP, extract it with Finder/Archive Utility, and first place **Aisora.app** in a separate **~/Applications/Aisora Preview** folder (create it in Finder if necessary). Quit the working app before testing the preview. Keep the app's name. After local acceptance, keep that writable location or move it once to your preferred home Applications location. A writable home installation avoids administrator privileges. Do not run from an image/ZIP preview/App Translocation directory.
+The old app has no updater, so one initial installation is necessary. Leave the working app in place, download the new Intel ZIP, extract it with Finder/Archive Utility, and first place **Aisora.app** in a separate **~/Applications/Aisora Preview** folder (create it in Finder if necessary). Quit the working app before testing the preview. Keep the app's name. After local acceptance, keep that writable location or move it once to your preferred home Applications location. A writable home installation avoids administrator privileges. Do not run from an image/ZIP preview/App Translocation directory.
 
 Open with normal macOS controls. **If macOS says damaged without offering approval, stop.** This candidate is ad-hoc signed, not Developer ID signed/notarized; native Ventura launch remains untested. Do not remove quarantine or disable Gatekeeper. Godot, Go, Python and a developer account are not required to run the app/updater; the existing separate Voice bridge keeps its original requirements.
 
