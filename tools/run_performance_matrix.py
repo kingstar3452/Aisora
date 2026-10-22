@@ -71,7 +71,7 @@ def main():
         fingerprint=hashlib.sha256()
         files=[directory/'project.godot']+sorted((directory/'scripts').glob('*.gd'))+sorted((directory/'assets').rglob('*.gdshader'))
         for source in files:fingerprint.update(source.relative_to(directory).as_posix().encode()+b'\0'+source.read_bytes())
-        provenance[label]={'source_path':str(directory.resolve()),'runtime_sha256':fingerprint.hexdigest(),'head':subprocess.run(['git','rev-parse','HEAD'],cwd=directory,capture_output=True,text=True).stdout.strip()}
+        provenance[label]={'source_path':str(directory.resolve()),'runtime_sha256':fingerprint.hexdigest(),'source_commit':(directory/'.benchmark-source-commit').read_text().strip() if (directory/'.benchmark-source-commit').exists() else subprocess.run(['git','rev-parse','HEAD'],cwd=directory,capture_output=True,text=True).stdout.strip()}
     provenance['harness_sha256']=digest(ROOT/'tools/performance_matrix.gd')
     provenance['cases_sha256']=digest(args.cases)
 

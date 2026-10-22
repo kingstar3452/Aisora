@@ -1,0 +1,37 @@
+# Phase 6 performance candidate — publication held
+
+**Work in progress: the repeated renderer comparison is running.** This document will be completed from retained measurements before preparing the release candidate. No installed Mac application is changed. rc.1 remains a draft, and rc.2 requires fresh approval before publication.
+
+## Preserved quality and compatibility
+
+The original VRM, every body/gesture animation, skeleton update cadence, expressions, full-detail face, textures, material quality, mouth amplitude envelope, bridge protocol, browser extension and user-data locations are preserved. The Low/Balanced face keeps rc.1's full LOD and facial lighting. High retains original MToon materials and 2× MSAA. Adaptive settings remain opt-in; the benchmark disables adaptation equally for all revisions to measure identical requested quality. Existing background-first adaptation and conversation resolution protection remain available in the app.
+
+Candidate changes avoid framebuffer blending for a fully opaque base illustration. Images with alpha and the incoming crossfade retain the original blending. Opacity is checked when an image is installed, never each frame. Both background materials receive the same ambient/pause parameters. Rest-pose IK reuses the pelvis/arm-parent FK snapshot and uses orthonormal inverses for its normalized quaternion bases. No animation step, contact correction or background effect is removed. The F3 overlay adds median/P99 data to its existing bounded 120-frame history and refresh-time sort.
+
+## Profiling and rejected experiments
+
+Before changing runtime code, the rc.1 component profile at Low, native 960×600, sunset, hidden UI, llvmpipe measured approximately 29.15 ms/frame total; viewport renderer CPU time was 23.76 ms and script time 0.43 ms. Background-only renderer time was 5.96 ms; character-only was 23.64 ms. Freezing the character solely for diagnostic isolation reduced renderer time to 17.45 ms. These component tests locate deferred skin/morph/draw costs; frozen-character results are **not scored application benchmarks** and the optimization never freezes animation. Software-renderer timer queries do not measure a physical GPU.
+
+Two experiments were rejected and reverted: moving uniform color/UV arithmetic into vertex shaders increased tail latency in the screen tests; removing unused tangent streams did not demonstrate a repeatable end-to-end or RSS benefit and added mesh/preset complexity. Their raw screen runs are retained, including outliers. The accepted-candidate character shaders and meshes remain unchanged from rc.1.
+
+The headless stage microbenchmark runs all three versions three times, 330 warmup ticks and 1,800 timed ticks per state. Median measured rest-IK stage cost changes from rc.1's 0.1430 to 0.1344 ms seated, and 0.1373 to 0.1311 ms sleeping. Total script medians are mixed (sleep total 0.2901 to 0.2973 ms), illustrating measurement variance. These microsecond savings alone do not establish faster rendered frames or native Mac performance.
+
+## Repeated comparison method
+
+Sources: previous working repair **bf2aee817f26da62a03187f9363580f57f71aeec**, updater **5ca43c50751a278ba5bfce462df147fc67cfffc8**, and optimization runtime **ddda53669d08e56aeca8ac96d1551c9aaf968ff5**. Each is imported in its own source archive. Every process uses the same external harness and case catalogue; source/runtime/harness fingerprints are recorded. No concurrent renderers or builds run during measurement.
+
+Environment: official Godot 4.6.3 Compatibility, Linux x86_64, Xvfb 1920×1080, Mesa 25.0.7 llvmpipe LLVM 19.1.7, Dummy audio, LP_NUM_THREADS=2. The environment reports five Xeon Platinum 8573C logical CPUs with a four-core cgroup quota. This is a shared software-rendering environment, not an Intel Mac GPU test. Physical GPU utilization, hardware VRAM pressure, power draw and authenticated Voice latency are unavailable.
+
+The 59 scenarios cover eight animation states across Low/Balanced/High, every personality gesture, day/night/rain/mist/branches/petals, effects off, crossfades, browser connected/disconnected and unavailable pairing, 960×600/1120×700/1920×1080 windows, native/reduced character viewports, explicit 30/15 FPS pacing and inactive Voice. Balanced is the existing middle preset referred to as Medium in the request. This is a coverage matrix rather than every possible Cartesian combination.
+
+Each scene uses a fresh temporary config, fixed scenery/seed and the normal visible UI with Settings collapsed. All body/rest animations and IK remain active. Rest cases enter the settled pose before 60 rendered warmup and 180 measured frames. Idle memory cases use 1,800 measured frames. Uncapped cases tick animation at 1/30 s; deliberately paced cases use real frame delta. The real Python bridge serves loopback HTTP while a 100 ms synthetic browser/audio fixture drives listening or speech amplitude. No Chrome session, credentials, microphone or authenticated ChatGPT Voice is exercised. Idle browser-disconnected cases still exercise the real bridge; unavailable-pairing cases exercise its offline behavior.
+
+Three sequential repetitions alternate project order. Every run/frame trace is retained, including slow runs and container throttling counters. Mean, median, P95, P99 and FPS summaries use medians of the three per-run statistics; percentiles are not pooled. CPU and sampled RSS cover each measured case, excluding warmup/startup; one logical CPU equals 100%. Engine-reported texture/buffer accounting is supplied separately from process RSS. A short RSS plateau does not prove absence of all leaks.
+
+The historical 57.1/65.7 ms idle P95 and 50.6/44.6 ms simulated-speaking mean figures used hidden UI, disabled real HTTP and sunset. The expanded visible-UI/daytime/HTTP matrix is a different workload and cannot be substituted directly for those historical values. A retained-workload comparison must be reported separately.
+
+## Local acceptance gate
+
+No native macOS launch, Apple trust assessment, iMac FPS/thermals, hardware GPU profiling, actual browser extension capture or authenticated ChatGPT Voice success is claimed. Ad-hoc signing remains subject to Gatekeeper rejection; no quarantine stripping or security bypass is added. Keep the existing working installation until local acceptance.
+
+At identical Low/native window size and settings, compare the working app and candidate for 10–15 minutes idle and in an actual Voice conversation. Record F3 mean/P95/P99 and Activity Monitor CPU/memory; repeat after thermal warmup. Inspect eyes, mouth and hair occlusion in day/night/rain, and all body transitions/personality gestures. Exercise unfocused/minimized recovery, explicit 15 FPS mode and the optional reduced viewport. Check that Voice preempts pacing/sleep and retains visible amplitude-driven mouth movement. Repeat with the Godot editor and standalone app; Linux project-player/packed-resource checks do not establish native editor/standalone parity.
