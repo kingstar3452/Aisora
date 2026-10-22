@@ -1,0 +1,31 @@
+{
+  "architecture": "x86_64",
+  "zip_crc": "pass",
+  "executable_permission": "pass",
+  "minimum_os": [
+    [
+      10,
+      13,
+      0
+    ]
+  ],
+  "signature_type": "ad-hoc",
+  "code_directories": [
+    {
+      "identifier": "local.aisora.companion",
+      "ad_hoc": true,
+      "digest": "sha256",
+      "code_pages_verified": 23123,
+      "special_slots_verified": 3
+    }
+  ],
+  "resource_hashes_verified": 4,
+  "info_plist_and_resource_seals": "pass",
+  "sha256": "bb59120067fcaddb4c320fbf29d0f2a7da338e587b4ee223d61c8e670315ba3f",
+  "bytes": 56715169,
+  "developer_id_verified": false,
+  "notarization_verified": false,
+  "gatekeeper_assessment_performed": false,
+  "native_macos_launch_performed": false,
+  "native_codesign_verification_performed": false
+}
