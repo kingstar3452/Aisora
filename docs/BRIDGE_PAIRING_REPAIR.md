@@ -59,3 +59,38 @@ The retained desktop protocol is **1** with unchanged key/port and `/v1/*` contr
 Cloud Chromium policy prevents loading the real unpacked extension; that policy was not bypassed. Browser tests use an isolated profile and no authenticated ChatGPT account. On the actual iMac, verify pairing once, close/reopen the popup, reload the extension in the same folder, restart the bridge with the same file, Reconnect/reselect the intended conversation, then test real Voice/audio. Unknown browser state is not assumed safe. Future in-app updates retain their native integrity/Gatekeeper checks.
 
 If pairing still fails, report the **secret-free diagnostic output**, extension version, displayed bridge state/version/endpoint, and whether the selected conversation shows connected. Do not share keys, authentication material, pairing files or unrelated browser contents.
+
+## Delivered repair and exact change list
+
+[Private support ZIP](https://github.com/kingstar3452/Aisora/releases/download/untagged-f88604f6870893b805b0/Aisora-bridge-extension-0.3.1.zip) · [successful focused CI](https://github.com/kingstar3452/Aisora/actions/runs/39956969947) · [implementation diff](https://github.com/kingstar3452/Aisora/commit/2b57048b652bce19ecf63a3b955d3eefcba9e8cf).
+
+ZIP SHA-256: `88c504b7407b83632bace40f5e56213f1fa435a2f6e9f3185c94dd97877b2355`. The independently downloaded GitHub asset matches the local package byte for byte. It contains only the matched bridge/extension, launcher, setup guide and component hashes, not the app or any pairing credentials. GitHub owner login is required for the private draft. The existing app asset remains unchanged.
+
+Exact changed files (including delivery documentation):
+
+```text
+.github/workflows/bridge-pairing-repair.yml
+README.md
+browser-controller/bridge.py
+browser-controller/extension/background.js
+browser-controller/extension/content.js
+browser-controller/extension/manifest.json
+browser-controller/extension/pairing.html
+browser-controller/extension/pairing.js
+browser-controller/extension/pairing_status.js
+browser-controller/extension/popup.css
+browser-controller/extension/popup.html
+browser-controller/extension/popup.js
+docs/BRIDGE_PAIRING_REPAIR.md
+docs/SETUP_MAC.md
+docs/TEST_RESULTS.md
+tests/extension_harness.cjs
+tests/extension_runtime.test.cjs
+tests/live_bridge_smoke.py
+tests/pairing_lifecycle.test.cjs
+tests/pairing_ui_smoke.py
+tests/test_bridge.py
+tools/package_bridge.py
+updater/updater_test.go
+docs/bridge-repair-delivery.json
+```
