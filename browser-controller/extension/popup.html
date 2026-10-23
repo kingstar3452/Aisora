@@ -4,7 +4,10 @@
 <body>
 <h1>A I S O R A</h1>
 <p>Select your existing ChatGPT Project conversation. This extension never opens a new chat.</p>
-<label class="file">1. Choose bridge pairing file <input id="pair" type="file" accept=".json"></label>
+<p id="connection" role="status">Checking local bridge…</p>
+<small id="versions"></small>
+<button id="pairSetup">1. Pair / troubleshoot bridge</button>
+<button id="reconnect">Reconnect</button>
 <label>Project label (your selection, not automatically verified)<input id="project" value="Aisora" maxlength="64"></label>
 <button id="bind">2. Use this ChatGPT tab</button>
 <button id="capture">3. Capture this tab's output audio</button>
@@ -26,5 +29,5 @@
 <button id="selectors">Save selectors</button>
 </details>
 <small>Voice control is experimental. If it fails, start/end Voice in ChatGPT manually. Configure browser shortcuts at chrome://extensions/shortcuts.</small>
-<script src="popup.js"></script>
+<script src="pairing_status.js"></script><script src="popup.js"></script>
 </body></html>

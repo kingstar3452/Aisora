@@ -10,6 +10,8 @@ Phase 6 continues on `dev/aisora-companion`: bounded four-direction skeletal wal
 
 For the standalone macOS launch failure, use the [bundle-signing repair candidate and limitations](docs/MACOS_LAUNCH_REPAIR.md). Its verified ad-hoc seals do not establish Apple Developer ID trust, notarization or native Ventura launch success.
 
+For repeated bridge pairing failures, use the [matched bridge/extension 0.3.1 repair and migration guide](docs/BRIDGE_PAIRING_REPAIR.md). The working 6.1.0-rc.2 standalone app does not need rebuilding.
+
 ## Start on your Mac
 
 1. Install the standard **Godot 4.6.3 editor** from [godotengine.org](https://godotengine.org/download/archive/4.6.3-stable/) and open this repository's `project.godot`. Allow the first VRM import to finish. Both bundled plugins should be enabled under Project Settings → Plugins.

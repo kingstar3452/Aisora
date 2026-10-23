@@ -300,7 +300,9 @@ func TestVoiceGuard(t *testing.T) {
 	defer server.Close()
 	port := strings.Split(server.URL, ":")[2]
 	path := filepath.Join(canonicalTempDir(t), "bridge.json")
-	os.WriteFile(path, []byte(`{"key":"`+strings.Repeat("a", 64)+`","port":`+port+`}`), 0600)
+	// Additive bridge 0.3.1 metadata must remain compatible with the shipped
+	// rc.2 helper's existing key/port reader and Voice guards.
+	os.WriteFile(path, []byte(`{"service":"aisora","protocol":1,"bridge_version":"0.3.1","key":"`+strings.Repeat("a", 64)+`","port":`+port+`}`), 0600)
 	if voiceClear(path, true) == nil {
 		t.Fatal("active Voice allowed even with manual confirmation")
 	}

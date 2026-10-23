@@ -1,5 +1,13 @@
 # Implementation and validation record
 
+## Bridge pairing repair — 23 October 2026
+
+Bridge/extension **0.3.1** retain protocol **1**. Two new startup regressions first failed on the old code: an occupied port created a misleading pairing file or rewrote an existing file before binding failed. Binding now precedes configuration writes. The actual iMac cause still requires the new read-only diagnostic; its observed old 0.1.0 extension and possible popup/file-picker lifetime issues are distinct from the reproduced startup defect. See the [repair and migration guide](BRIDGE_PAIRING_REPAIR.md).
+
+Focused Linux validation passes **25 Python tests**, **41 Node test groups**, the persistent setup Chromium DOM/file-picker/same-file-retry/reset test (mocked extension transport), and the retained simulated ChatGPT DOM smoke. Worker lifecycle tests use an actual Python HTTP bridge for authenticated import, saved local-storage reload, outage/restart, stale key/re-pairing and selected-conversation routing. The **existing shipped rc.2 PCK** passes **15 Godot/HTTP/lip-sync checks** against the new bridge with additive configuration metadata; the targeted Go updater Voice-guard test also passes. All extension JS syntax and changed Python compilation checks pass. No standalone executable, updater production code, animations, settings schema, renderer, or installed data changed. Previously passed performance/full-body suites were not rerun for this transport/UI repair.
+
+These are Linux fixture tests, not authenticated ChatGPT Voice or native Intel Ventura tests. Cloud Chromium policy prevents loading the actual unpacked extension, and was not bypassed. The user reports the existing app launches on their iMac; repaired real Chrome pairing, persistence, capture and Voice require local acceptance. No stable/public release is authorized by these results.
+
 ## Private preview and genuine local build — 23 October 2026, Asia/Singapore
 
 The latest user clarification authorizes a private, separate ad-hoc test using normal Ventura **Open Anyway** only if offered. No public/trusted/notarized release is claimed. The versioned private draft now contains the original verified native ZIP/checksum/evidence: the authorized CI transfer resolved the earlier upload failure. The new delivered ZIP was independently downloaded and SHA-256/size matched exactly. [Delivery record](private-preview-delivery.json) · [approval/rollback instructions](MACOS_PRIVATE_PREVIEW.md).

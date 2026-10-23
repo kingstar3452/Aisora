@@ -1,6 +1,6 @@
 /* Isolated extension world: no cookies, network interception, React internals, or transcripts. */
 (() => {
-  const version = '0.3.0';
+  const version = '0.3.1';
   if (globalThis.__aisoraInstalled === version) return;
   globalThis.__aisoraStop?.();
   globalThis.__aisoraInstalled = version;

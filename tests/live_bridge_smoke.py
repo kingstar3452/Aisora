@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise Godot's actual HTTP client against the bridge; browser/audio are simulated."""
 import importlib.util
+import argparse
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,9 @@ spec.loader.exec_module(bridge)
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--pack', type=Path, help='Exercise the client from an existing exported PCK without rebuilding it')
+    args = parser.parse_args()
     key = '1' * 64  # Test-only local pairing, never a ChatGPT credential.
     state = bridge.BridgeState()
     server = bridge.make_server(0, key, state)
@@ -38,8 +42,11 @@ def main():
     try:
         with tempfile.TemporaryDirectory(prefix='aisora-godot-bridge-') as temporary:
             path = Path(temporary) / 'pairing.json'
-            path.write_text(json.dumps({'port': server.server_port, 'key': key}))
-            result = subprocess.run([str(ROOT / 'tools/run_godot.sh'), '--headless', '--script', 'res://tests/test_live_bridge.gd'],
+            bridge.pairing_config(path, server.server_port, key)
+            command = [str(ROOT / 'tools/run_godot.sh'), '--headless']
+            if args.pack: command += ['--main-pack', str(args.pack.resolve())]
+            command += ['--script', str(ROOT / 'tests/test_live_bridge.gd')]
+            result = subprocess.run(command,
                                     cwd=ROOT, env={**os.environ, 'AISORA_BRIDGE_CONFIG': str(path)},
                                     capture_output=True, text=True, timeout=40)
             print(result.stdout, end='')

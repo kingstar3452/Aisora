@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import tempfile
 import threading
+import subprocess
+import sys
 import unittest
 import urllib.error
 import urllib.request
@@ -204,6 +206,84 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/v1/audio', {'rms': 'bad', 'capturing': True})[0], 400)
         self.assertEqual(self.request('/v1/poll', {'voice': 'made-up'})[0], 400)
         self.assertEqual(self.request('/missing')[0], 404)
+
+
+class StartupTests(unittest.TestCase):
+    def test_occupied_port_does_not_create_a_misleading_pairing_file(self):
+        server = bridge.make_server(0, 'a' * 64)
+        self.addCleanup(server.server_close)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'another-source-copy/.local/bridge.json'
+            result = subprocess.run([sys.executable, str(Path(bridge.__file__)), '--port', str(server.server_port), '--config', str(path)], capture_output=True, text=True, timeout=5)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(path.exists(), 'A failed second bridge must not generate a valid-looking key for the first bridge port')
+
+    def test_occupied_port_preserves_existing_pairing_bytes(self):
+        server = bridge.make_server(0, 'a' * 64)
+        self.addCleanup(server.server_close)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'bridge.json'
+            original = json.dumps({'port': 8766, 'key': 'b' * 64}, indent=2).encode()
+            path.write_bytes(original)
+            result = subprocess.run([sys.executable, str(Path(bridge.__file__)), '--port', str(server.server_port), '--config', str(path)], capture_output=True, text=True, timeout=5)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(path.read_bytes(), original)
+
+
+class DiagnosticTests(unittest.TestCase):
+    def setUp(self):
+        self.server = bridge.make_server(0, 'a' * 64)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.addCleanup(self.stop)
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / 'bridge.json'
+        bridge.pairing_config(self.path, self.server.server_port, 'a' * 64)
+
+    def stop(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join()
+
+    def test_authenticated_bridge_is_distinct_from_selected_browser(self):
+        before = self.path.read_bytes()
+        result = bridge.diagnose(self.path)
+        self.assertEqual(result['status'], 'Connected')
+        self.assertEqual(result['protocol'], 1)
+        self.assertEqual(result['bridge_version'], '0.3.1')
+        self.assertFalse(result['conversation_connected'])
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertNotIn('a' * 64, json.dumps(result))
+
+    def test_stale_key_reports_authentication_failure_without_secrets(self):
+        bridge.pairing_config(self.path, self.server.server_port, 'b' * 64)
+        result = bridge.diagnose(self.path)
+        self.assertEqual(result['status'], 'Authentication failed')
+        self.assertEqual(result['http_status'], 401)
+        self.assertNotIn('a' * 64, json.dumps(result))
+        self.assertNotIn('b' * 64, json.dumps(result))
+
+    def test_diagnose_cli_authenticates_and_never_rewrites_key(self):
+        before = self.path.read_bytes()
+        result = subprocess.run([sys.executable, str(Path(bridge.__file__)), '--diagnose', '--config', str(self.path)], capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout)['status'], 'Connected')
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertNotIn('a' * 64, result.stdout + result.stderr)
+
+    def test_missing_or_future_config_is_read_only(self):
+        missing = self.path.parent / 'missing/bridge.json'
+        self.assertEqual(bridge.diagnose(missing)['status'], 'Unpaired')
+        self.assertFalse(missing.parent.exists())
+        config = json.loads(self.path.read_text())
+        config['protocol'] = 2
+        self.path.write_text(json.dumps(config))
+        self.assertEqual(bridge.diagnose(self.path)['status'], 'Incompatible')
+
+    def test_legacy_file_remains_compatible(self):
+        self.path.write_text(json.dumps({'port': self.server.server_port, 'key': 'a' * 64}))
+        self.assertEqual(bridge.diagnose(self.path)['status'], 'Connected')
 
 
 if __name__ == '__main__': unittest.main()

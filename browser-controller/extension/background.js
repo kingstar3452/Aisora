@@ -5,6 +5,56 @@ let captureAt = 0;
 let captureTarget = null;
 let captureTask = null;
 let captureGeneration = 0;
+let pairingTask = null;
+let connection = {pairingStatus: 'unpaired', bridgeMessage: 'Import the running bridge\'s pairing file. Importing alone is not authentication.'};
+
+function pairingError(code, message) {
+  const error = new Error(message); error.pairingStatus = code; return error;
+}
+function validPairing(p) {
+  return p && Number.isInteger(p.port) && p.port >= 1024 && p.port <= 65535 && typeof p.key === 'string' && /^[a-f0-9]{64}$/.test(p.key)
+    && (p.protocol === undefined || p.protocol === 1) && (p.service === undefined || p.service === 'aisora');
+}
+function rememberConnection(error, extra = {}) {
+  connection = error ? {pairingStatus: error.pairingStatus || 'bridge_unavailable', bridgeMessage: error.pairingStatus ? error.message : 'Bridge unavailable. Start one bridge, check its port and Chrome local-network access, then Reconnect.'}
+    : {...connection, pairingStatus: 'connected', bridgeMessage: 'Bridge authenticated. Selected-conversation connection is separate.', ...extra};
+}
+async function requestBridge(p, path, data) {
+  if (!validPairing(p)) throw pairingError(p ? 'invalid_config' : 'unpaired', p ? 'Saved/file configuration is invalid or incompatible. Import the current bridge.json; requests were not sent.' : 'No pairing saved. Open Pair / troubleshoot bridge.');
+  let response;
+  try {
+    response = await fetch(`http://127.0.0.1:${p.port}${path}`, {
+      method: data === undefined ? 'GET' : 'POST',
+      headers: {'Content-Type': 'application/json', ...(path === '/health' ? {} : {'X-Aisora-Key': p.key})},
+      body: data === undefined ? undefined : JSON.stringify(data),
+      signal: AbortSignal.timeout(1500), cache: 'no-store', redirect: 'error'
+    });
+  } catch { throw pairingError('bridge_unavailable', 'Bridge unavailable. Start one bridge on this port, check Chrome local-network permission, then Reconnect.'); }
+  if (!response.ok) {
+    if (response.status === 401) throw pairingError('authentication_failed', 'Authentication failed (HTTP 401). This running bridge rejected the saved key. Use the exact file printed by its Terminal; check for another source copy on the port.');
+    if (response.status === 403) throw pairingError('bridge_unavailable', 'Bridge refused the localhost request (HTTP 403). Check extension origin/permissions; do not disable security checks.');
+    throw pairingError('bridge_unavailable', `Local bridge request failed (HTTP ${Number(response.status) || 'unknown'}). Check its version/process; manual Voice remains available.`);
+  }
+  let result;
+  try { result = await response.json(); }
+  catch { throw pairingError('incompatible', 'Incompatible response on the saved port. Start the matching Aisora bridge.'); }
+  if (!result || typeof result !== 'object' || Array.isArray(result)) throw pairingError('incompatible', 'Incompatible bridge response.');
+  return result;
+}
+async function authenticate(p) {
+  const identity = await requestBridge(p, '/health');
+  if (identity.service !== 'aisora' || identity.version !== 1) throw pairingError('incompatible', 'This port is not an Aisora protocol 1 bridge. Start the matching bridge; existing pairing kept.');
+  const state = await requestBridge(p, '/v1/state');
+  if (typeof state.connected !== 'boolean' || !['active', 'inactive', 'unknown'].includes(state.voice)) throw pairingError('incompatible', 'Incompatible bridge state; existing pairing kept.');
+  const version = typeof identity.bridge_version === 'string' && /^\d+\.\d+\.\d+$/.test(identity.bridge_version) ? identity.bridge_version : 'legacy protocol 1';
+  rememberConnection(null, {bridgeVersion: version, protocol: 1, endpoint: `127.0.0.1:${p.port}`});
+  return state;
+}
+function pairingOperation(task) {
+  const result = (pairingTask || Promise.resolve()).catch(() => {}).then(task);
+  pairingTask = result;
+  return result.finally(() => { if (pairingTask === result) pairingTask = null; });
+}
 
 async function config() {
   const data = await chrome.storage.local.get(['pairing', 'startSelector', 'endSelector', 'thinkingSelector', 'listeningSelector']);
@@ -13,16 +63,8 @@ async function config() {
 }
 async function bridge(path, data) {
   const {pairing} = await config();
-  if (!pairing) throw new Error('Choose the bridge pairing file first.');
-  const response = await fetch(`http://127.0.0.1:${pairing.port}${path}`, {
-    method: data === undefined ? 'GET' : 'POST',
-    headers: {'Content-Type': 'application/json', 'X-Aisora-Key': pairing.key},
-    body: data === undefined ? undefined : JSON.stringify(data),
-    signal: AbortSignal.timeout(1500), cache: 'no-store'
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || 'Local bridge unavailable.');
-  return result;
+  try { const result = await requestBridge(pairing, path, data); rememberConnection(null); return result; }
+  catch (error) { rememberConnection(error); throw error; }
 }
 async function stopCapture() {
   captureGeneration++;
@@ -61,6 +103,7 @@ async function handle(message, sender) {
   if (sender.id !== chrome.runtime.id) throw new Error('Invalid sender');
   const cfg = await config();
   const trustedPopup = sender.url === chrome.runtime.getURL('popup.html');
+  const trustedSetup = sender.url === chrome.runtime.getURL('pairing.html');
   const trustedOffscreen = sender.url === chrome.runtime.getURL('offscreen.html');
   const selected = sender.tab?.id === cfg.targetId && sender.url?.startsWith('https://chatgpt.com/') && message.path === cfg.targetPath;
   if (message.type === 'selected') return {selected, options: {startSelector: cfg.startSelector, endSelector: cfg.endSelector, thinkingSelector: cfg.thinkingSelector, listeningSelector: cfg.listeningSelector}};
@@ -88,22 +131,37 @@ async function handle(message, sender) {
     if (message.ok && message.observedVoice === 'inactive') await chrome.storage.session.remove('voiceOwner');
     return bridge('/v1/result', {id: message.id, ok: message.ok === true, ...(message.observedVoice ? {observed_voice: message.observedVoice} : {})});
   }
-  if (!trustedPopup) throw new Error('Select this tab in the Aisora extension first.');
+  if (!trustedPopup && !(trustedSetup && ['pair','status','reconnect','resetPairing'].includes(message.type))) throw new Error('Select this tab in the Aisora extension first.');
   if (message.type === 'pair') {
-    const p = message.pairing;
-    if (!p || !Number.isInteger(p.port) || p.port < 1024 || p.port > 65535 || !/^[a-f0-9]{64}$/.test(p.key))
-      throw new Error('Invalid bridge pairing file');
-    const base = `http://127.0.0.1:${p.port}`;
-    const request = path => fetch(base+path, {headers: {'X-Aisora-Key': p.key}, signal: AbortSignal.timeout(1500), cache: 'no-store'});
-    const health = await request('/health');
-    const identity = await health.json();
-    if (!health.ok || identity.service !== 'aisora' || identity.version !== 1) throw new Error('This is not the Aisora bridge. Existing pairing kept.');
-    const response = await request('/v1/state');
-    const state = await response.json();
-    if (!response.ok || typeof state.connected !== 'boolean' || !['active','inactive','unknown'].includes(state.voice))
-      throw new Error('Pairing rejected. Choose the current bridge.json; existing pairing kept.');
-    await chrome.storage.local.set({pairing: {port: p.port, key: p.key}});
-    return {ok: true};
+    return pairingOperation(async () => {
+      const p = message.pairing;
+      const current = await config();
+      if (!validPairing(p)) throw pairingError('invalid_config', 'Invalid bridge pairing file or incompatible protocol. Saved pairing was not replaced.');
+      if (current.voiceOwner && (current.pairing?.port !== p.port || current.pairing?.key !== p.key)) throw new Error('End Voice and clear its stale guard before switching bridges.');
+      connection = {pairingStatus: 'connecting', bridgeMessage: 'Authenticating imported file; it has not been saved yet.'};
+      try {
+        await authenticate(p);
+        await chrome.storage.local.set({pairing: {port: p.port, key: p.key}});
+        return {ok: true, ...connection};
+      } catch (error) {
+        rememberConnection(error);
+        throw pairingError(error.pairingStatus || 'bridge_unavailable', 'Pairing rejected. ' + connection.bridgeMessage + ' Existing saved pairing kept.');
+      }
+    });
+  }
+  if (message.type === 'resetPairing') {
+    return pairingOperation(async () => {
+      const current = await config();
+      if (message.confirmedNoVoice !== true || current.voiceOwner) throw new Error('End Voice first. If it ended manually, clear the stale Voice guard in the popup, then confirm Reset.');
+      let observed;
+      try { observed = await authenticate(current.pairing); } catch { /* Unobservable state requires the explicit confirmation above. */ }
+      if (observed?.voice === 'active' || observed?.pending) throw new Error('Voice or a command is active; pairing was not reset.');
+      await stopCapture();
+      await chrome.storage.local.remove('pairing');
+      await chrome.storage.session.remove(['targetId', 'targetPath', 'bindingId', 'projectLabel']);
+      connection = {pairingStatus: 'unpaired', bridgeMessage: 'Pairing reset. Bridge files, browser sign-in and other preferences were not changed.'};
+      return {ok: true, ...connection};
+    });
   }
   if (message.type === 'bind') {
     if (bindingTask) return bindingTask;
@@ -121,9 +179,16 @@ async function handle(message, sender) {
   if (['toggle','startVoice','endVoice'].includes(message.type)) {
     return sendVoiceCommand({toggle:'toggle',startVoice:'start',endVoice:'end'}[message.type],cfg);
   }
-  if (message.type === 'status') {
-    const state = await bridge('/v1/state');
-    return {...state, guarded: !!cfg.voiceOwner, captureFresh: Date.now() - captureAt < 500, selected: Number.isInteger(cfg.targetId), projectLabel: cfg.projectLabel || "", selectionRequired: !Number.isInteger(cfg.targetId)};
+  if (message.type === 'status' || message.type === 'reconnect') {
+    let state = {connected: false, voice: 'unknown', capturing: false};
+    // Status is always renderable, even before pairing or during failure. A
+    // saved configuration is not reported as authenticated without a probe.
+    try { state = await authenticate(cfg.pairing); } catch (error) { rememberConnection(error); }
+    const warning = state.error ? (String(state.error).includes('Microphone permission') ? 'Microphone permission is blocked; check ChatGPT/browser permissions.' : 'Conversation or audio capture reports a warning; check the selected tab and use manual Voice if needed.') : '';
+    return {connected: state.connected === true, voice: state.voice, capturing: state.capturing === true,
+      pending: state.pending === true, error: warning, ...connection, extensionVersion: chrome.runtime.getManifest?.().version || '0.3.1',
+      guarded: !!cfg.voiceOwner, captureFresh: Date.now() - captureAt < 500,
+      selected: Number.isInteger(cfg.targetId), projectLabel: cfg.projectLabel || '', selectionRequired: !Number.isInteger(cfg.targetId)};
   }
   if (message.type === 'selectors') {
     await chrome.storage.local.set({startSelector: String(message.start || '').slice(0, 256), endSelector: String(message.end || '').slice(0, 256), thinkingSelector: String(message.thinking || '').slice(0,256), listeningSelector: String(message.listening || '').slice(0,256)});

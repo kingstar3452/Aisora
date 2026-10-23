@@ -4,8 +4,10 @@ For the standalone private preview, start with [separate installation, Ventura O
 
 For standalone updates, see [one-time updater installation and Gatekeeper limits](UPDATES.md). If Chrome reports **Manifest file is missing**, select the nested **browser-controller/extension** folder in Load unpacked, not the downloaded repository root.
 
-Start with [Phase 6](PHASE6.md) for current full-body/personality controls, calibration, optional autonomy, export and rollback. Phase 5 backgrounds, local sunset alternatives and pairing files are preserved. Reload extension **0.3.0**, refresh your intended Project conversation, then explicitly select it again and restart output capture if needed. Keep your normal authenticated browser session; signing out is unnecessary.
+Start with [Phase 6](PHASE6.md) for current full-body/personality controls, calibration, optional autonomy, export and rollback. Phase 5 backgrounds, local sunset alternatives and pairing files are preserved. Reload extension **0.3.1**, refresh your intended Project conversation, then explicitly select it again and restart output capture if needed. Keep your normal authenticated browser session; signing out is unnecessary.
 
+
+For repeated pairing failures or several extracted source folders, follow the [0.3.1 pairing repair guide](BRIDGE_PAIRING_REPAIR.md) first. It includes a visible permanent configuration path, Reconnect/Reset, and a secret-free authentication diagnostic. No standalone app rebuild is needed.
 
 ## 1. Run the character
 
@@ -22,14 +24,14 @@ cd /path/to/Aisora
 python3 browser-controller/bridge.py
 ```
 
-It binds only to `127.0.0.1:8765` and creates `.local/bridge.json` with a random, local-only pairing key. **This is not a ChatGPT credential.** It is excluded from Git and Godot imports/exports. Never paste that file into an issue or commit it. If port 8765 is occupied, run with `--port 8766`, then reselect the updated pairing file in the extension. Godot automatically reloads the local pairing file when disconnected. If using a saved override or an exported viewer, choose the current file in Godot Settings → Voice connection as well.
+It binds only to `127.0.0.1:8765` and creates `.local/bridge.json` with a random, local-only pairing key. **This is not a ChatGPT credential.** It is excluded from Git and Godot imports/exports. Never paste that file into an issue or commit it. If port 8765 is occupied, stop the old bridge in its own Terminal or deliberately use `--port 8766 --config /absolute/path/to/bridge-8766.json`, then choose that same file in both clients. A failed bind does not change pairing files. Godot automatically reloads the local pairing file when disconnected. If using a saved override or an exported viewer, choose the current file in Godot Settings → Voice connection as well.
 
 ## 3. Install and pair the extension
 
 1. Open `chrome://extensions` (Edge: `edge://extensions`). Enable Developer mode, choose **Load unpacked**, and select `browser-controller/extension`.
 2. In the same browser profile where you already use ChatGPT, open your **Aisora Project and its intended conversation**. Complete normal sign-in, microphone and Voice setup yourself. The extension does not manage authentication or choose a Project. Enter your Project label in the popup; it is a user-selected label, not automatically verified membership. Select the actual conversation, not the home or Project landing page.
 3. Pin the Aisora extension to the toolbar and click it while that ChatGPT tab is selected.
-4. Choose **1. Choose bridge pairing file**, then `.local/bridge.json`. Dot folders are hidden in Finder: use **Command+Shift+G**, paste the full path to `/path/to/Aisora/.local`, then select `bridge.json`.
+4. Choose **Pair / troubleshoot bridge** to open the persistent setup tab, then import `.local/bridge.json`. Wait for **Connected**, which confirms authentication before saving; importing alone is not success. Dot folders are hidden in Finder: use **Command+Shift+G**, paste the full path to `/path/to/Aisora/.local`, then select `bridge.json`.
 5. Click **2. Use this ChatGPT tab**. Only this tab and conversation path receive commands; other ChatGPT tabs are ignored. Navigating to another conversation clears the selection and stops capture. Reselect after navigation, restarting the browser or closing the tab.
 6. Wait a second and **Refresh status**. Godot should report “Browser connected.” If Chrome asks to access the local network, allow the extension's loopback connection. Permissions are never bypassed.
 7. Try Voice **manually in ChatGPT first**. Then test F8 in the Godot window to start, inspect the browser's actual Voice UI, and press again to end. Allow onboarding dialogs or microphone prompts yourself. A missing/changed button produces a diagnostic instead of repeated clicking.

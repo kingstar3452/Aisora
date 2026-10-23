@@ -8,16 +8,13 @@ async function run(task) {
   try { await task(); }
   catch (error) { status.textContent = error.message; }
 }
-async function refresh() {
-  const s = await send('status');
+async function refresh(type = 'status') {
+  const s = await send(type);
+  AisoraPairingUI.render(s);
   status.textContent = `${s.selected ? 'Selected: ' + (s.projectLabel || 'conversation') : 'Select the Project conversation'} · ${s.connected ? 'Tab connected' : 'Tab disconnected'} · Voice ${s.voice} · Output ${s.capturing ? 'capturing' : 'off'}${s.error ? '\n' + s.error : ''}`;
 }
-document.querySelector('#pair').addEventListener('change', event => run(async () => {
-  const file = event.target.files[0];
-  if (!file || file.size > 2048) throw new Error('Choose the small .local/bridge.json pairing file.');
-  await send('pair', {pairing: JSON.parse(await file.text())});
-  status.textContent = 'Bridge paired. Now select this existing ChatGPT tab.';
-}));
+document.querySelector('#pairSetup').addEventListener('click', () => run(() => chrome.runtime.openOptionsPage()));
+document.querySelector('#reconnect').addEventListener('click', () => run(async () => { AisoraPairingUI.connecting(); await refresh('reconnect'); }));
 for (const [id, type, message] of [
   ['bind', 'bind', 'Tab selected. Wait a second, then refresh status.'],
   ['capture', 'capture', 'Output capture started. Start native Voice normally.'],

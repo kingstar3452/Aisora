@@ -2,6 +2,7 @@
 """Local metadata-only bridge. No ChatGPT API, credentials, transcripts, or audio files."""
 from __future__ import annotations
 import argparse
+import errno
 import hmac
 import json
 import math
@@ -11,9 +12,13 @@ from pathlib import Path
 import secrets
 import threading
 import time
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[1]
+BRIDGE_VERSION = '0.3.1'
+PROTOCOL = 1
 
 
 class BridgeState:
@@ -176,7 +181,7 @@ def make_server(port, key, state=None):
                 self.respond(403, {"error": "Forbidden origin or host"})
                 return False
             if auth and not hmac.compare_digest(self.headers.get("X-Aisora-Key", "").encode("utf-8"), key.encode("utf-8")):
-                self.respond(401, {"error": "Pair the local bridge"})
+                self.respond(401, {'error': 'Authentication failed: pairing key does not match the running bridge', 'code': 'authentication_failed'})
                 return False
             return True
 
@@ -194,7 +199,7 @@ def make_server(port, key, state=None):
             if not self.allowed(auth=self.path != "/health"):
                 return
             if self.path == "/health":
-                self.respond(200, {"service": "aisora", "version": 1})
+                self.respond(200, {"service": "aisora", "version": PROTOCOL, "bridge_version": BRIDGE_VERSION})
             elif self.path == "/v1/state":
                 self.respond(200, state.snapshot())
             else:
@@ -233,37 +238,104 @@ def make_server(port, key, state=None):
     return server
 
 
-def pairing_config(path: Path, port: int):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    (path.parent / ".gdignore").touch()
+def pairing_key(path: Path):
     if path.exists():
+        if path.stat().st_size > 2048:
+            raise ValueError('Pairing file is too large; choose the bridge configuration, not another JSON file')
         data = json.loads(path.read_text())
-        if not isinstance(data.get("key"), str) or not re.fullmatch(r"[a-f0-9]{64}", data["key"]):
-            raise ValueError("Invalid pairing file; remove it and re-pair")
-        key = data["key"]
-    else:
-        key = secrets.token_hex(32)
+        if not isinstance(data, dict) or not isinstance(data.get('key'), str) or not re.fullmatch(r'[a-f0-9]{64}', data['key']):
+            raise ValueError('Invalid pairing file; keep it for inspection and choose a new configuration path')
+        return data['key']
+    return secrets.token_hex(32)
+
+
+def pairing_config(path: Path, port: int, key=None):
+    key = key or pairing_key(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    (path.parent / '.gdignore').touch()
     # Atomic replacement, restrictive permissions even with a permissive umask.
     temporary = path.with_suffix(".tmp")
     fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as handle:
-        json.dump({"port": port, "key": key}, handle)
+        json.dump({'service': 'aisora', 'protocol': PROTOCOL, 'bridge_version': BRIDGE_VERSION, 'port': port, 'key': key}, handle)
     os.chmod(temporary, 0o600)
     temporary.replace(path)
     return key
+
+
+def diagnose(path: Path):
+    """Read-only localhost authentication probe; never return/log a pairing key."""
+    try:
+        key = pairing_key(path) if path.is_file() else None
+        data = json.loads(path.read_text()) if key else {}
+        port = data.get('port')
+        if not key or type(port) is not int or not 1024 <= port <= 65535:
+            raise ValueError('Invalid configuration')
+    except (OSError, ValueError):
+        return {'status': 'Unpaired', 'message': 'Choose the existing bridge.json written by the running bridge.'}
+    if data.get('protocol', PROTOCOL) != PROTOCOL or data.get('service', 'aisora') != 'aisora':
+        return {'status': 'Incompatible', 'message': 'This pairing file uses an unsupported service/protocol.'}
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *_args, **_kwargs):
+            return None
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    try:
+        def get(endpoint):
+            request = urllib.request.Request(f'http://127.0.0.1:{port}{endpoint}', headers={} if endpoint == '/health' else {'X-Aisora-Key': key})
+            with opener.open(request, timeout=2) as response:
+                return json.loads(response.read(16385))
+        health = get('/health')
+        if not isinstance(health, dict) or health.get('service') != 'aisora' or health.get('version') != PROTOCOL:
+            return {'status': 'Incompatible', 'port': port, 'message': 'This port is not a compatible Aisora protocol 1 bridge.'}
+        state = get('/v1/state')
+        if not isinstance(state, dict) or type(state.get('connected')) is not bool or state.get('voice') not in ('active', 'inactive', 'unknown'):
+            return {'status': 'Incompatible', 'port': port, 'message': 'Bridge state is incompatible.'}
+        version = health.get('bridge_version', 'legacy protocol 1')
+        return {'status': 'Connected', 'port': port, 'protocol': PROTOCOL,
+                'bridge_version': version if isinstance(version, str) and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version) else 'legacy protocol 1',
+                'conversation_connected': state['connected'],
+                'message': 'Bridge authentication succeeded. Conversation connection is separate.'}
+    except urllib.error.HTTPError as error:
+        return {'status': 'Authentication failed' if error.code == 401 else 'Bridge unavailable', 'port': port,
+                'http_status': error.code, 'message': 'The running process rejected this pairing file. Use its exact config; check for an older bridge on this port.' if error.code == 401 else 'Bridge HTTP request failed; check the running process and protocol.'}
+    except (OSError, ValueError):
+        return {'status': 'Bridge unavailable', 'port': port, 'message': 'No compatible bridge response. Start one bridge with this configuration and retry.'}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--config", type=Path, default=ROOT / ".local" / "bridge.json")
+    parser.add_argument('--diagnose', action='store_true', help='Read-only localhost authentication check; prints no pairing key')
+    parser.add_argument('--version', action='version', version=f'Aisora bridge {BRIDGE_VERSION}; protocol {PROTOCOL}')
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("Use a port from 1024 to 65535")
-    key = pairing_config(args.config, args.port)
-    server = make_server(args.port, key)
-    print(f"Aisora bridge listening on 127.0.0.1:{args.port}", flush=True)
-    print(f"In the extension, choose this pairing file: {args.config}", flush=True)
+    args.config = args.config.expanduser().resolve()
+    if args.diagnose:
+        report = diagnose(args.config)
+        print(json.dumps(report, indent=2))
+        raise SystemExit(0 if report['status'] == 'Connected' else 2)
+    try:
+        key = pairing_key(args.config)
+        # Reserve the port BEFORE creating/replacing credentials. A failed
+        # second source copy must not leave credentials for the first process.
+        server = make_server(args.port, key)
+    except OSError as error:
+        if error.errno == errno.EADDRINUSE:
+            raise SystemExit(f'Port {args.port} is already in use. Another bridge/source copy may be running. No pairing file was changed. Stop the old bridge in its Terminal, or deliberately choose another --port and --config.')
+        raise SystemExit('Bridge could not bind localhost. No pairing file was changed.')
+    except ValueError:
+        raise SystemExit('Invalid pairing configuration. Keep the old file and choose a valid or new --config path.')
+    try:
+        pairing_config(args.config, args.port, key)
+    except (OSError, ValueError):
+        server.server_close()
+        raise SystemExit('Bridge could not save its private pairing file. Check folder permissions; no server was started.')
+    print(f'Aisora bridge {BRIDGE_VERSION} / protocol {PROTOCOL} listening on 127.0.0.1:{args.port}', flush=True)
+    print(f'Running source: {Path(__file__).resolve()}', flush=True)
+    print(f'In the extension and Aisora Settings, choose this exact file: {args.config}', flush=True)
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
