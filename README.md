@@ -82,4 +82,4 @@ This cloud task already has an isolated checkout; use it directly rather than cr
 
 See [third-party notices](docs/THIRD_PARTY.md). The character's embedded VRM license metadata remains intact and separate from the importer license.
 
-Autonomy candidate: [preferred defaults, controls and Voice limitations](docs/AUTONOMY.md). Publication remains held pending the performance report and approval.
+Autonomy candidate: [preferred defaults, controls and Voice limitations](docs/AUTONOMY.md). The [completed rc.2 performance report](docs/PERFORMANCE_RC2.md) retains gains and regressions; performance acceptance remains open and publication stays held. See the [development checkpoint](docs/DEVELOPMENT_CHECKPOINT.md) for exact recovery state.

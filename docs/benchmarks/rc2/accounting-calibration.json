@@ -1,0 +1,8 @@
+{
+  "native_os": "macOS-15.7.9-x86_64-i386-64bit",
+  "machine": "x86_64",
+  "rusage_cpu_delta_seconds": 0.29861460100000004,
+  "process_time_delta_seconds": 0.298719,
+  "resident_bytes": 14757888,
+  "measurement": "public proc_pid_rusage RUSAGE_INFO_V0; nanoseconds converted to seconds"
+}

@@ -1,0 +1,28 @@
+{
+  "date_singapore": "2026-10-23",
+  "counts": {
+    "session-matrix-final3.json.gz": 531,
+    "session-autonomy-final3.json.gz": 27,
+    "session-native-final3.json.gz": 18,
+    "session-native-extended-final3.json.gz": 9,
+    "session-project-player-final3.json.gz": 12,
+    "session-legacy-final3.json.gz": 18,
+    "native-matrix.json.gz": 72,
+    "canonical-headless-profiles.json.gz": 18
+  },
+  "linux_rendering_cases": 615,
+  "native_mac_cases": 72,
+  "headless_records": 18,
+  "source_fingerprints_match": true,
+  "all_valid_runs_retained": true,
+  "core_checks": 1324,
+  "linux_go_groups": 13,
+  "core_failures": 0,
+  "native_zip_sha256": "263dddb013d59a6207cd76a67f8d694f861e8e9ef224aba418e667598dd6710b",
+  "native_zip_bytes": 60018823,
+  "proposed_release_metadata": "prepared locally only; not published; v6.1.0-rc.2 URL reserved for future approved publication",
+  "native_target_imac_tested": false,
+  "authenticated_voice_tested": false,
+  "gatekeeper_acceptance": "rejected native CI exit 3",
+  "publication": "held"
+}

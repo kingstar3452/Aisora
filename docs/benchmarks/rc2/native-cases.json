@@ -1,0 +1,50 @@
+[
+  {
+    "id": "idle-q0",
+    "state": "idle",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "speaking-q0",
+    "state": "speaking",
+    "quality": 0,
+    "bridge": "connected"
+  },
+  {
+    "id": "listening-q0",
+    "state": "listening",
+    "quality": 0,
+    "bridge": "connected"
+  },
+  {
+    "id": "walking-q0",
+    "state": "walking",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "sitting-q0",
+    "state": "sitting",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "reclining-q0",
+    "state": "reclining",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "sleeping-q0",
+    "state": "sleeping",
+    "quality": 0,
+    "bridge": "disconnected"
+  },
+  {
+    "id": "personality-q0",
+    "state": "personality",
+    "quality": 0,
+    "bridge": "disconnected"
+  }
+]

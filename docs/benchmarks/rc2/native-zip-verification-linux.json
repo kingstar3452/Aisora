@@ -1,0 +1,54 @@
+{
+  "architecture": "x86_64",
+  "zip_crc": "pass",
+  "executable_permission": "pass",
+  "minimum_os": [
+    [
+      10,
+      13,
+      0
+    ]
+  ],
+  "signature_type": "ad-hoc",
+  "code_directories": [
+    {
+      "identifier": "local.aisora.companion",
+      "ad_hoc": true,
+      "digest": "sha256",
+      "code_pages_verified": 23123,
+      "special_slots_verified": 3,
+      "cdhash": "6910bf4f2de27fbb4446a8f86685b7e201ec8013"
+    }
+  ],
+  "resource_hashes_verified": 5,
+  "nested_code_verified": [
+    {
+      "path": "Helpers/AisoraUpdater",
+      "architecture": "x86_64",
+      "minimum_os": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "code_directories": [
+        {
+          "identifier": "local.aisora.companion.updater",
+          "ad_hoc": true,
+          "digest": "sha256",
+          "code_pages_verified": 1865,
+          "special_slots_verified": 1,
+          "cdhash": "7ee19195b1e9208b2813d806d5a934803632757d"
+        }
+      ]
+    }
+  ],
+  "info_plist_and_resource_seals": "pass",
+  "sha256": "263dddb013d59a6207cd76a67f8d694f861e8e9ef224aba418e667598dd6710b",
+  "bytes": 60018823,
+  "developer_id_verified": false,
+  "notarization_verified": false,
+  "gatekeeper_assessment_performed": false,
+  "native_macos_launch_performed": false
+}
