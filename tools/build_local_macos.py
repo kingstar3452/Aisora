@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build a separate Intel Mac preview from verified source; never install/launch.
 
-No git, Xcode, signing account, pip modules, quarantine changes or user-data
-writes. Python 3.12+, official Godot 4.6.3 and Go are build-time requirements.
-Native signing is ad-hoc: local Finder acceptance must still be tested.
+No git checkout, paid signing account, pip modules, quarantine changes or
+user-data writes. Python 3.12+, Godot 4.6.3, Go and Apple's native build tools
+are build-time requirements. Local Finder acceptance must still be tested.
 """
 import argparse
 import json
@@ -40,6 +40,13 @@ def checked(command, log, environment):
     return text.strip()
 
 
+def apple_build_tools():
+    # Query only: never trigger xcode-select --install or change its selection.
+    result = subprocess.run(['/usr/bin/xcode-select', '--print-path'], capture_output=True, text=True)
+    if result.returncode or not Path(result.stdout.strip()).is_dir():
+        raise ValueError('Apple Command Line Tools are required for native signing/architecture tools. Install them through Apple first; no build or security change was attempted')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--archive', required=True, type=Path)
@@ -54,6 +61,7 @@ def main():
     try:
         destination = output_directory(ROOT, args.output or ROOT / 'exports' / ('local-preview-' + args.source_commit[:12]))
         proof = verify_archive(ROOT, args.archive.resolve(), args.archive_sha256, args.source_commit)
+        apple_build_tools()
         candidates = [os.environ.get('GODOT_BIN'), shutil.which('godot'), '/Applications/Godot.app/Contents/MacOS/Godot', str(Path.home() / 'Applications/Godot.app/Contents/MacOS/Godot')]
         godot = next((Path(x).resolve() for x in candidates if x and Path(x).is_file() and os.access(x, os.X_OK)), None)
         selected_go = os.environ.get('AISORA_GO') or shutil.which('go')

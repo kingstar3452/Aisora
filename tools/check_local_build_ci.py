@@ -65,7 +65,7 @@ def main():
               'normal_target_finder_or_open_anyway_tested': False, 'ventura_imac_tested': False,
               'runtime_changes': False, 'quarantine_or_security_policy_changed': False}
     (work / 'local-source-build-report.json').write_text(json.dumps(report, indent=2) + '\n')
-    print('Verified source-ZIP export, no git/Xcode invocation, Intel main/helper, native seals and headless startup.')
+    print('Verified source-ZIP export without invoking git; Apple build tools are installed on this CI host. Intel main/helper, native seals and headless startup pass.')
     print('CI LaunchServices exit:', launch['exit'], '; actual Ventura approval/launch still requires user testing.')
 
 

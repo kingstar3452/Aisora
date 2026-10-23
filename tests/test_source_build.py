@@ -10,7 +10,7 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 from source_provenance import digest, source_revision, verify_archive
-from build_local_macos import output_directory
+from build_local_macos import apple_build_tools, output_directory
 
 COMMIT = '1' * 40
 
@@ -122,6 +122,20 @@ class SourceBuildTests(unittest.TestCase):
         (self.repo / 'exports').symlink_to(self.directory, target_is_directory=True)
         with self.assertRaisesRegex(ValueError, 'symlink'):
             output_directory(self.repo, self.repo / 'exports/new')
+
+    def test_missing_apple_tools_query_stops_without_installing_them(self):
+        result = subprocess.CompletedProcess([], 2, '', 'no active developer directory')
+        with patch('build_local_macos.subprocess.run', return_value=result) as call:
+            with self.assertRaisesRegex(ValueError, 'Command Line Tools'):
+                apple_build_tools()
+            self.assertEqual(call.call_args.args[0], ['/usr/bin/xcode-select', '--print-path'])
+
+    def test_installed_apple_tools_query_does_not_change_selection(self):
+        result = subprocess.CompletedProcess([], 0, str(self.directory) + '\n', '')
+        with patch('build_local_macos.subprocess.run', return_value=result) as call:
+            apple_build_tools()
+            self.assertEqual(call.call_count, 1)
+            self.assertEqual(call.call_args.args[0], ['/usr/bin/xcode-select', '--print-path'])
 
     @unittest.skipIf(sys.platform == 'darwin', 'Linux guard check')
     def test_non_macos_guard_does_not_create_output(self):

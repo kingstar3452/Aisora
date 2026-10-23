@@ -49,7 +49,7 @@ jobs:
           PY
       - name: Install pinned official Godot editor
         run: python3 tools/validate_macos_ci.py bootstrap
-      - name: Focused source-ZIP build without git or Xcode
+      - name: Focused source-ZIP build without git
         run: python3 tools/check_local_build_ci.py
       - name: Save focused evidence to PRIVATE draft only
         env:
