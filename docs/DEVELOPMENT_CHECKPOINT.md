@@ -33,7 +33,7 @@ Target 2017 Intel iMac/Ventura, Retina drawable resolution, sustained thermals, 
 
 ## Candidate and rollback
 
-Owner-private draft ID **421151792**, nonversioned tag `aisora-native-validation-39843983384` (updater ignores it): [review page](https://github.com/kingstar3452/Aisora/releases/tag/untagged-46f17c529d7d1e3c8e7f). Native `Aisora-phase6-macos.zip`, **60,018,823 bytes**, SHA-256 **263dddb013d59a6207cd76a67f8d694f861e8e9ef224aba418e667598dd6710b**. This is an ad-hoc review/test candidate, not an approved/trusted replacement. Previous working release and rc.1 draft remain preserved. Runtime can be inspected at 2142475; no rollback of the installed Mac was needed because it was never changed.
+Owner-private draft ID **421151792**, nonversioned tag `aisora-native-validation-39843983384` (updater ignores it): [review page](https://github.com/kingstar3452/Aisora/releases/tag/untagged-1db13c3057e44d8033ad). Native `Aisora-phase6-macos.zip`, **60,018,823 bytes**, SHA-256 **263dddb013d59a6207cd76a67f8d694f861e8e9ef224aba418e667598dd6710b**. This is an ad-hoc review/test candidate, not an approved/trusted replacement. Previous working release and rc.1 draft remain preserved. Runtime can be inspected at 2142475; no rollback of the installed Mac was needed because it was never changed.
 
 Recovered uncommitted work consisted of the preview data-backup clarification plus the generated review/raw/summary files. It was preserved and incorporated, not discarded. New recovery changes are documentation, evidence, the native performance CI/tool merge, and a portable summary catalogue option/OS-neutral memory label. Production runtime/resources remain identical to the native test ZIP's source.
 

@@ -8,10 +8,12 @@ Validation: **1,324 core Linux checks plus 13 Go groups/vet**, actual-VRM pack/r
 
 ## Build and download
 
-- [Owner-private draft](https://github.com/kingstar3452/Aisora/releases/tag/untagged-46f17c529d7d1e3c8e7f) — sign into the repository owner account.
-- [Direct ZIP](https://github.com/kingstar3452/Aisora/releases/download/untagged-46f17c529d7d1e3c8e7f/Aisora-phase6-macos.zip), **60,018,823 bytes**, Intel **x86_64**, official Godot **4.6.3** templates, minimum macOS **13.0** because of the helper.
+- [Owner-private draft](https://github.com/kingstar3452/Aisora/releases/tag/untagged-1db13c3057e44d8033ad) — sign into the repository owner account.
+- [Direct ZIP](https://github.com/kingstar3452/Aisora/releases/download/untagged-1db13c3057e44d8033ad/Aisora-phase6-macos.zip), **60,018,823 bytes**, Intel **x86_64**, official Godot **4.6.3** templates, minimum macOS **13.0** because of the helper.
 - SHA-256: `263dddb013d59a6207cd76a67f8d694f861e8e9ef224aba418e667598dd6710b`.
 - Build source **9095bceef8a0294c38850f1b874a7f508610a476**, production runtime **2142475b0cc9f8386e64929db1486746e9115e8b**. Later changes are CI/tests/tools/docs, not untested runtime additions.
+
+Draft review/download URLs can change when the draft is edited. If a link expires, sign into GitHub and find **Aisora 6.1.0-rc.2** in [repository Releases](https://github.com/kingstar3452/Aisora/releases), then use Assets. Release ID **421151792** and ZIP asset ID **666951269** identify this candidate.
 
 The ZIP is complete and ad-hoc signed, **not Developer ID signed or notarized**. **Gatekeeper rejects the quarantined copy in native CI (exit 3).** Downloading this draft does not solve the damaged-app/normal-launch problem. It is preserved for review, not recommended as a replacement or advertised as a verified updater installation. The nonversioned draft is intentionally invisible to update discovery.
 
