@@ -1,0 +1,60 @@
+{
+  "description": "User-supplied Phase 5 images; resize/compress only, no recoloring or generated substitutes.",
+  "images": {
+    "daytime": {
+      "bytes": 635886,
+      "height": 941,
+      "lossy": true,
+      "original_height": 941,
+      "original_width": 1672,
+      "quality": 0.9,
+      "source_filename": "afternoon.png",
+      "source_sha256": "fe5a68fd9edd0ce6e18fb5eb66210c64971724ab3d560f0c60ccdc649927d7fb",
+      "width": 1672
+    },
+    "morning": {
+      "bytes": 574438,
+      "height": 941,
+      "lossy": true,
+      "original_height": 941,
+      "original_width": 1672,
+      "quality": 0.9,
+      "source_filename": "morning.png",
+      "source_sha256": "4b553dbbd16f72a88cafd795a9a6d68fbfbd2f0cdce35af8c4a2afe7cfe7b1bb",
+      "width": 1672
+    },
+    "nighttime": {
+      "bytes": 542364,
+      "height": 941,
+      "lossy": true,
+      "original_height": 941,
+      "original_width": 1672,
+      "quality": 0.9,
+      "source_filename": "night.png",
+      "source_sha256": "23e2951be5cd29e1f47e85b9ba83bb92fad09aa90b657c9d32ae2086746dac63",
+      "width": 1672
+    },
+    "rain": {
+      "bytes": 563946,
+      "height": 941,
+      "lossy": true,
+      "original_height": 941,
+      "original_width": 1672,
+      "quality": 0.9,
+      "source_filename": "rain.png",
+      "source_sha256": "7d7f222563db97e7cf278ebaaec16e19a4b56ea9297fd5d0b0faa52c195617f5",
+      "width": 1672
+    },
+    "sunset": {
+      "bytes": 410780,
+      "height": 940,
+      "lossy": true,
+      "original_height": 940,
+      "original_width": 1672,
+      "quality": 0.9,
+      "source_filename": "sunset.png",
+      "source_sha256": "225499904e891a2d7f4c2e0c86d23a01fb128d25c739060079a26b6bc9f75361",
+      "width": 1672
+    }
+  }
+}

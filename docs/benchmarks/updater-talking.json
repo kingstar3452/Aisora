@@ -1,0 +1,243 @@
+{
+  "method": {
+    "runs": 3,
+    "measured_frames": 180,
+    "warmup_frames": 60,
+    "state": "talking",
+    "part": "full",
+    "lp_num_threads": "2",
+    "uncapped": true,
+    "resolution": "960x600",
+    "ui_and_network": false,
+    "summary": "Median of per-run statistics, not pooled frame percentiles.",
+    "coordinator_simulated_voice": true
+  },
+  "medians": {
+    "phase6-r2": {
+      "render": {
+        "mean_ms": 50.5695055555555,
+        "p50_ms": 46.731,
+        "p95_ms": 92.874
+      }
+    },
+    "updater-low": {
+      "render": {
+        "mean_ms": 44.6209388888889,
+        "p50_ms": 40.088,
+        "p95_ms": 76.038
+      }
+    }
+  },
+  "samples": [
+    {
+      "action": "",
+      "bone_writes": 2174,
+      "draw_calls": 22.0,
+      "engine": "4.6.3-stable (official)",
+      "face_writes": 300,
+      "frame": {
+        "mean_ms": 35.5771277777778,
+        "p50_ms": 29.902,
+        "p95_ms": 54.08
+      },
+      "label": "phase6-r2-1",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 23850.0,
+      "process_ms": 48.647,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 47299785.0,
+      "video_memory_bytes": 264383531.0,
+      "process_usage": {
+        "whole_process_wall_seconds": 25.479730204999214,
+        "whole_process_cpu_seconds": 20.707823,
+        "whole_process_cpu_percent": 81.27175144082591,
+        "peak_sampled_rss_bytes": 534523904,
+        "note": "CPU includes startup/warmup; one logical core = 100%. RSS sampled at 10 Hz via Linux procfs, not GPU memory. Not an iMac forecast."
+      },
+      "repetition": 1,
+      "case": "phase6-r2"
+    },
+    {
+      "action": "",
+      "bone_writes": 2340,
+      "draw_calls": 22.0,
+      "engine": "4.6.3-stable (official)",
+      "face_writes": 300,
+      "frame": {
+        "mean_ms": 44.6209388888889,
+        "p50_ms": 37.003,
+        "p95_ms": 85.779
+      },
+      "label": "updater-low-1",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 29120.0,
+      "process_ms": 47.687,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 48205763.0,
+      "video_memory_bytes": 264383531.0,
+      "process_usage": {
+        "whole_process_wall_seconds": 27.967405561001215,
+        "whole_process_cpu_seconds": 25.899570999999998,
+        "whole_process_cpu_percent": 92.60626962164598,
+        "peak_sampled_rss_bytes": 481718272,
+        "note": "CPU includes startup/warmup; one logical core = 100%. RSS sampled at 10 Hz via Linux procfs, not GPU memory. Not an iMac forecast."
+      },
+      "repetition": 1,
+      "case": "updater-low"
+    },
+    {
+      "action": "",
+      "bone_writes": 2174,
+      "draw_calls": 22.0,
+      "engine": "4.6.3-stable (official)",
+      "face_writes": 300,
+      "frame": {
+        "mean_ms": 50.5695055555555,
+        "p50_ms": 46.731,
+        "p95_ms": 92.874
+      },
+      "label": "phase6-r2-2",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 23850.0,
+      "process_ms": 91.932,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 47299785.0,
+      "video_memory_bytes": 264383531.0,
+      "process_usage": {
+        "whole_process_wall_seconds": 26.723884293998708,
+        "whole_process_cpu_seconds": 23.281624999999988,
+        "whole_process_cpu_percent": 87.11916555194883,
+        "peak_sampled_rss_bytes": 535412736,
+        "note": "CPU includes startup/warmup; one logical core = 100%. RSS sampled at 10 Hz via Linux procfs, not GPU memory. Not an iMac forecast."
+      },
+      "repetition": 2,
+      "case": "phase6-r2"
+    },
+    {
+      "action": "",
+      "bone_writes": 2340,
+      "draw_calls": 22.0,
+      "engine": "4.6.3-stable (official)",
+      "face_writes": 300,
+      "frame": {
+        "mean_ms": 42.7457388888889,
+        "p50_ms": 40.454,
+        "p95_ms": 69.213
+      },
+      "label": "updater-low-2",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 29120.0,
+      "process_ms": 72.351,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 48205771.0,
+      "video_memory_bytes": 264383531.0,
+      "process_usage": {
+        "whole_process_wall_seconds": 26.8907046610002,
+        "whole_process_cpu_seconds": 22.598232000000003,
+        "whole_process_cpu_percent": 84.03733663690262,
+        "peak_sampled_rss_bytes": 497348608,
+        "note": "CPU includes startup/warmup; one logical core = 100%. RSS sampled at 10 Hz via Linux procfs, not GPU memory. Not an iMac forecast."
+      },
+      "repetition": 2,
+      "case": "updater-low"
+    },
+    {
+      "action": "",
+      "bone_writes": 2174,
+      "draw_calls": 22.0,
+      "engine": "4.6.3-stable (official)",
+      "face_writes": 300,
+      "frame": {
+        "mean_ms": 55.2175388888889,
+        "p50_ms": 50.903,
+        "p95_ms": 97.257
+      },
+      "label": "phase6-r2-3",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 23850.0,
+      "process_ms": 70.107,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 47299785.0,
+      "video_memory_bytes": 264383531.0,
+      "process_usage": {
+        "whole_process_wall_seconds": 28.26783609800259,
+        "whole_process_cpu_seconds": 24.613749999999996,
+        "whole_process_cpu_percent": 87.07334340932876,
+        "peak_sampled_rss_bytes": 487346176,
+        "note": "CPU includes startup/warmup; one logical core = 100%. RSS sampled at 10 Hz via Linux procfs, not GPU memory. Not an iMac forecast."
+      },
+      "repetition": 3,
+      "case": "phase6-r2"
+    },
+    {
+      "action": "",
+      "bone_writes": 2340,
+      "draw_calls": 22.0,
+      "engine": "4.6.3-stable (official)",
+      "face_writes": 300,
+      "frame": {
+        "mean_ms": 45.5123222222222,
+        "p50_ms": 40.088,
+        "p95_ms": 76.038
+      },
+      "label": "updater-low-3",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 29120.0,
+      "process_ms": 65.447,
+      "quality": 0,
+      "render_scale": 1.0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "scene": "supplied sunset",
+      "state": "talking",
+      "static_memory_bytes": 48205771.0,
+      "video_memory_bytes": 264383531.0,
+      "process_usage": {
+        "whole_process_wall_seconds": 28.40923637400192,
+        "whole_process_cpu_seconds": 23.844486000000018,
+        "whole_process_cpu_percent": 83.93216095671183,
+        "peak_sampled_rss_bytes": 518455296,
+        "note": "CPU includes startup/warmup; one logical core = 100%. RSS sampled at 10 Hz via Linux procfs, not GPU memory. Not an iMac forecast."
+      },
+      "repetition": 3,
+      "case": "updater-low"
+    }
+  ]
+}

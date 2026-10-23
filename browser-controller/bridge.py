@@ -1,0 +1,348 @@
+#!/usr/bin/env python3
+"""Local metadata-only bridge. No ChatGPT API, credentials, transcripts, or audio files."""
+from __future__ import annotations
+import argparse
+import errno
+import hmac
+import json
+import math
+import os
+import re
+from pathlib import Path
+import secrets
+import threading
+import time
+import urllib.error
+import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+ROOT = Path(__file__).resolve().parents[1]
+BRIDGE_VERSION = '0.3.1'
+PROTOCOL = 1
+
+
+class BridgeState:
+    def __init__(self, clock=time.monotonic):
+        self.clock = clock
+        self.lock = threading.RLock()
+        self.binding_id = ""
+        self.project_label = ""
+        self.last_browser = -math.inf
+        self.last_audio = -math.inf
+        self.voice = "unknown"
+        self.activity = "unknown"
+        self.audio_error = ""
+        self.rms = 0.0
+        self.capturing = False
+        self.pending = None
+        self.command_error = ""
+        self.error = "Open the extension on your existing ChatGPT conversation."
+
+    def expire(self):
+        if self.pending and self.clock() - self.pending["created"] > 15:
+            self.pending = None
+            self.error = "Voice command timed out. Check the browser; use its Voice button manually."
+            self.command_error = self.error
+
+    def snapshot(self):
+        with self.lock:
+            self.expire()
+            connected = self.clock() - self.last_browser < 4
+            audio_fresh = self.clock() - self.last_audio < 0.4
+            return {"project_label": self.project_label if connected else "", "conversation_selected": connected and bool(self.binding_id), "connected": connected, "voice": self.voice if connected else "unknown",
+                    "capturing": connected and self.capturing and audio_fresh,
+                    "rms": self.rms if connected and self.capturing and audio_fresh else 0.0,
+                    "pending": self.pending is not None,
+                    "activity": self.activity if connected and self.voice == "active" else "unknown",
+                    "error": " ".join(filter(None, [self.error, self.audio_error])) if connected else "Browser disconnected. Open ChatGPT and pair the extension."}
+
+    def poll(self, data):
+        with self.lock:
+            self.expire()
+            voice = data.get("voice")
+            if voice not in ("unknown", "active", "inactive"):
+                raise ValueError("Invalid Voice state")
+            binding = data.get("binding_id", "")
+            label = data.get("project_label", "")
+            if not isinstance(binding, str) or (binding and not re.fullmatch(r"[a-zA-Z0-9-]{1,64}", binding)):
+                raise ValueError("Invalid binding identifier")
+            if not isinstance(label, str) or len(label) > 64 or any(ord(c) < 32 or ord(c) == 127 for c in label):
+                raise ValueError("Invalid Project label")
+            if binding != self.binding_id:
+                if self.pending:
+                    self.pending = None
+                    self.command_error = "Conversation selection changed; pending Voice command cancelled."
+                self.rms = 0.0
+                self.capturing = False
+                self.last_audio = -math.inf
+            self.binding_id = binding
+            self.project_label = label
+            self.last_browser = self.clock()
+            self.voice = voice
+            activity = data.get("activity", "unknown")
+            self.activity = activity if voice == "active" and activity in ("thinking", "listening", "unknown") else "unknown"
+            if not self.pending:
+                # Only fixed, non-content diagnostic codes are accepted from the extension.
+                self.error = self.command_error or {"ambiguous": "Voice controls are ambiguous; use manual Voice.",
+                              "permission": "Microphone permission is blocked. Allow ChatGPT microphone access in the browser/macOS, then use Voice manually.",
+                              "missing": "Voice controls not found; sign in or use manual Voice.",
+                              "": ""}.get(data.get("diagnostic", ""), "Voice detection unavailable.")
+            if data.get("diagnostic") == "permission":
+                self.error = "Microphone permission is blocked. Allow ChatGPT microphone access in the browser/macOS, then use Voice manually."
+            if self.pending and not self.pending["dispatched"] and data.get("busy") is not True:
+                self.pending["dispatched"] = True
+                return {k: self.pending[k] for k in ("id", "action")}
+            return None
+
+    def command(self, action):
+        with self.lock:
+            self.expire()
+            if action not in ("toggle", "start", "end"):
+                raise ValueError("Invalid action")
+            if self.clock() - self.last_browser >= 4:
+                raise RuntimeError("Browser disconnected; use ChatGPT Voice manually.")
+            if self.pending:
+                raise RuntimeError("A Voice command is already pending.")
+            self.pending = {"id": secrets.token_hex(8), "action": action,
+                            "created": self.clock(), "dispatched": False}
+            self.error = ""
+            self.command_error = ""
+            return self.pending["id"]
+
+    def result(self, data):
+        with self.lock:
+            self.expire()
+            if not self.pending or data.get("id") != self.pending["id"]:
+                return False
+            observed = data.get("observed_voice", "unknown")
+            if observed not in ("unknown", "active", "inactive"):
+                raise ValueError("Invalid observed Voice state")
+            self.pending = None
+            if data.get("ok") is True and observed != "unknown":
+                self.voice = observed
+                self.activity = "unknown"
+                self.last_browser = self.clock()
+            # A click is not success. The extension must observe the resulting control.
+            self.error = "" if data.get("ok") is True else "Voice did not confirm the requested state. Use the browser's Voice controls."
+            self.command_error = self.error
+            return True
+
+    def audio(self, data):
+        with self.lock:
+            # Late output from the previous selection must never animate the new one.
+            if data.get("binding_id", self.binding_id) != self.binding_id:
+                return
+            rms = data.get("rms", 0.0)
+            if isinstance(rms, bool) or not isinstance(rms, (float, int)) or not math.isfinite(rms):
+                raise ValueError("Invalid amplitude")
+            if not isinstance(data.get("capturing"), bool):
+                raise ValueError("Invalid capture state")
+            diagnostic = data.get("diagnostic", "")
+            if diagnostic not in ("", "capture_denied", "capture_ended", "capture_failed"):
+                raise ValueError("Invalid capture diagnostic")
+            if diagnostic:
+                self.audio_error = {"capture_denied": "Tab output permission was denied. Retry capture from the selected tab; manual Voice still works.",
+                                    "capture_ended": "Tab output capture ended. Retry capture for lip sync; Voice may still be active.",
+                                    "capture_failed": "Tab output capture could not start. Check browser permissions; use manual Voice."}[diagnostic]
+            elif data["capturing"]:
+                self.audio_error = ""
+            self.rms = max(0.0, min(1.0, rms))
+            self.capturing = data["capturing"]
+            self.last_audio = self.clock()
+
+
+def make_server(port, key, state=None):
+    state = state or BridgeState()
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass  # Never log requests, pairing keys, tab information, or browser content.
+
+        def origin_allowed(self):
+            origin = self.headers.get("Origin", "")
+            return not origin or re.fullmatch(r"chrome-extension://[a-p]{32}", origin) is not None
+
+        def respond(self, status, data):
+            body = json.dumps(data, allow_nan=False).encode()
+            self.send_response(status)
+            origin = self.headers.get("Origin", "")
+            if origin and self.origin_allowed():
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def allowed(self, auth=True):
+            allowed_hosts = {f"127.0.0.1:{self.server.server_port}"}
+            if self.headers.get("Host") not in allowed_hosts or not self.origin_allowed():
+                self.respond(403, {"error": "Forbidden origin or host"})
+                return False
+            if auth and not hmac.compare_digest(self.headers.get("X-Aisora-Key", "").encode("utf-8"), key.encode("utf-8")):
+                self.respond(401, {'error': 'Authentication failed: pairing key does not match the running bridge', 'code': 'authentication_failed'})
+                return False
+            return True
+
+        def do_OPTIONS(self):
+            if not self.allowed(auth=False):
+                return
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", self.headers.get("Origin", ""))
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Aisora-Key")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+            self.end_headers()
+
+        def do_GET(self):
+            if not self.allowed(auth=self.path != "/health"):
+                return
+            if self.path == "/health":
+                self.respond(200, {"service": "aisora", "version": PROTOCOL, "bridge_version": BRIDGE_VERSION})
+            elif self.path == "/v1/state":
+                self.respond(200, state.snapshot())
+            else:
+                self.respond(404, {"error": "Not found"})
+
+        def do_POST(self):
+            if not self.allowed():
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 < length <= 2048:
+                    raise ValueError("Invalid body length")
+                data = json.loads(self.rfile.read(length))
+                if not isinstance(data, dict):
+                    raise ValueError("Expected object")
+                if self.path == "/v1/poll":
+                    result = {"command": state.poll(data)}
+                elif self.path == "/v1/command":
+                    result = {"id": state.command(data.get("action"))}
+                elif self.path == "/v1/result":
+                    result = {"accepted": state.result(data)}
+                elif self.path == "/v1/audio":
+                    state.audio(data)
+                    result = {"ok": True}
+                else:
+                    self.respond(404, {"error": "Not found"})
+                    return
+                self.respond(200, result)
+            except (ValueError, TypeError, OverflowError):
+                self.respond(400, {"error": "Invalid request"})
+            except RuntimeError as exc:
+                self.respond(409, {"error": str(exc)})
+
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server.daemon_threads = True
+    return server
+
+
+def pairing_key(path: Path):
+    if path.exists():
+        if path.stat().st_size > 2048:
+            raise ValueError('Pairing file is too large; choose the bridge configuration, not another JSON file')
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict) or not isinstance(data.get('key'), str) or not re.fullmatch(r'[a-f0-9]{64}', data['key']):
+            raise ValueError('Invalid pairing file; keep it for inspection and choose a new configuration path')
+        return data['key']
+    return secrets.token_hex(32)
+
+
+def pairing_config(path: Path, port: int, key=None):
+    key = key or pairing_key(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    (path.parent / '.gdignore').touch()
+    # Atomic replacement, restrictive permissions even with a permissive umask.
+    temporary = path.with_suffix(".tmp")
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as handle:
+        json.dump({'service': 'aisora', 'protocol': PROTOCOL, 'bridge_version': BRIDGE_VERSION, 'port': port, 'key': key}, handle)
+    os.chmod(temporary, 0o600)
+    temporary.replace(path)
+    return key
+
+
+def diagnose(path: Path):
+    """Read-only localhost authentication probe; never return/log a pairing key."""
+    try:
+        key = pairing_key(path) if path.is_file() else None
+        data = json.loads(path.read_text()) if key else {}
+        port = data.get('port')
+        if not key or type(port) is not int or not 1024 <= port <= 65535:
+            raise ValueError('Invalid configuration')
+    except (OSError, ValueError):
+        return {'status': 'Unpaired', 'message': 'Choose the existing bridge.json written by the running bridge.'}
+    if data.get('protocol', PROTOCOL) != PROTOCOL or data.get('service', 'aisora') != 'aisora':
+        return {'status': 'Incompatible', 'message': 'This pairing file uses an unsupported service/protocol.'}
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *_args, **_kwargs):
+            return None
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    try:
+        def get(endpoint):
+            request = urllib.request.Request(f'http://127.0.0.1:{port}{endpoint}', headers={} if endpoint == '/health' else {'X-Aisora-Key': key})
+            with opener.open(request, timeout=2) as response:
+                return json.loads(response.read(16385))
+        health = get('/health')
+        if not isinstance(health, dict) or health.get('service') != 'aisora' or health.get('version') != PROTOCOL:
+            return {'status': 'Incompatible', 'port': port, 'message': 'This port is not a compatible Aisora protocol 1 bridge.'}
+        state = get('/v1/state')
+        if not isinstance(state, dict) or type(state.get('connected')) is not bool or state.get('voice') not in ('active', 'inactive', 'unknown'):
+            return {'status': 'Incompatible', 'port': port, 'message': 'Bridge state is incompatible.'}
+        version = health.get('bridge_version', 'legacy protocol 1')
+        return {'status': 'Connected', 'port': port, 'protocol': PROTOCOL,
+                'bridge_version': version if isinstance(version, str) and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version) else 'legacy protocol 1',
+                'conversation_connected': state['connected'],
+                'message': 'Bridge authentication succeeded. Conversation connection is separate.'}
+    except urllib.error.HTTPError as error:
+        return {'status': 'Authentication failed' if error.code == 401 else 'Bridge unavailable', 'port': port,
+                'http_status': error.code, 'message': 'The running process rejected this pairing file. Use its exact config; check for an older bridge on this port.' if error.code == 401 else 'Bridge HTTP request failed; check the running process and protocol.'}
+    except (OSError, ValueError):
+        return {'status': 'Bridge unavailable', 'port': port, 'message': 'No compatible bridge response. Start one bridge with this configuration and retry.'}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--config", type=Path, default=ROOT / ".local" / "bridge.json")
+    parser.add_argument('--diagnose', action='store_true', help='Read-only localhost authentication check; prints no pairing key')
+    parser.add_argument('--version', action='version', version=f'Aisora bridge {BRIDGE_VERSION}; protocol {PROTOCOL}')
+    args = parser.parse_args()
+    if not 1024 <= args.port <= 65535:
+        parser.error("Use a port from 1024 to 65535")
+    args.config = args.config.expanduser().resolve()
+    if args.diagnose:
+        report = diagnose(args.config)
+        print(json.dumps(report, indent=2))
+        raise SystemExit(0 if report['status'] == 'Connected' else 2)
+    try:
+        key = pairing_key(args.config)
+        # Reserve the port BEFORE creating/replacing credentials. A failed
+        # second source copy must not leave credentials for the first process.
+        server = make_server(args.port, key)
+    except OSError as error:
+        if error.errno == errno.EADDRINUSE:
+            raise SystemExit(f'Port {args.port} is already in use. Another bridge/source copy may be running. No pairing file was changed. Stop the old bridge in its Terminal, or deliberately choose another --port and --config.')
+        raise SystemExit('Bridge could not bind localhost. No pairing file was changed.')
+    except ValueError:
+        raise SystemExit('Invalid pairing configuration. Keep the old file and choose a valid or new --config path.')
+    try:
+        pairing_config(args.config, args.port, key)
+    except (OSError, ValueError):
+        server.server_close()
+        raise SystemExit('Bridge could not save its private pairing file. Check folder permissions; no server was started.')
+    print(f'Aisora bridge {BRIDGE_VERSION} / protocol {PROTOCOL} listening on 127.0.0.1:{args.port}', flush=True)
+    print(f'Running source: {Path(__file__).resolve()}', flush=True)
+    print(f'In the extension and Aisora Settings, choose this exact file: {args.config}', flush=True)
+    try:
+        server.serve_forever(poll_interval=0.5)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+
+
+if __name__ == "__main__":
+    main()

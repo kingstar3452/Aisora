@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Aisora</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+<h1>A I S O R A</h1>
+<p>Select your existing ChatGPT Project conversation. This extension never opens a new chat.</p>
+<p id="connection" role="status">Checking local bridge…</p>
+<small id="versions"></small>
+<button id="pairSetup">1. Pair / troubleshoot bridge</button>
+<button id="reconnect">Reconnect</button>
+<label>Project label (your selection, not automatically verified)<input id="project" value="Aisora" maxlength="64"></label>
+<button id="bind">2. Use this ChatGPT tab</button>
+<button id="capture">3. Capture this tab's output audio</button>
+<small>Optional capture for lip sync. No microphone capture, recording, or audio uploads. Chrome may ask for permission.</small>
+<button id="stopCapture">Stop output capture</button>
+<hr>
+<button id="startVoice">Start native Voice</button>
+<button id="endVoice">End native Voice</button>
+<button id="toggle">Toggle native Voice</button>
+<button id="releaseGuard">Voice ended manually · clear stale guard</button>
+<button id="refresh">Refresh status</button>
+<p id="status" role="status">Start the local bridge, then choose its pairing file.</p>
+<details><summary>Advanced: changed / localized Voice buttons</summary>
+<p>Optional CSS selectors for the visible start and end buttons. Leave empty to use exact English accessible labels. Ambiguous controls fail safely.</p>
+<label>Start selector<input id="start" placeholder="Optional CSS selector"></label>
+<label>End selector<input id="end" placeholder="Optional CSS selector"></label>
+<label>Thinking status selector<input id="thinking" placeholder="Optional visible Voice thinking indicator"></label>
+<label>Listening indicator selector<input id="listening" placeholder="Optional visible Voice listening indicator"></label>
+<button id="selectors">Save selectors</button>
+</details>
+<small>Voice control is experimental. If it fails, start/end Voice in ChatGPT manually. Configure browser shortcuts at chrome://extensions/shortcuts.</small>
+<script src="pairing_status.js"></script><script src="popup.js"></script>
+</body></html>

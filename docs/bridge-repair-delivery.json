@@ -1,0 +1,44 @@
+{
+  "repository": "kingstar3452/Aisora",
+  "branch": "dev/aisora-companion",
+  "source_commit": "2b57048b652bce19ecf63a3b955d3eefcba9e8cf",
+  "bridge_version": "0.3.1",
+  "extension_version": "0.3.1",
+  "bridge_protocol": 1,
+  "release_id": 421423152,
+  "private_draft": true,
+  "release_url": "https://github.com/kingstar3452/Aisora/releases/tag/untagged-f88604f6870893b805b0",
+  "artifact": {
+    "id": 669127414,
+    "name": "Aisora-bridge-extension-0.3.1.zip",
+    "size": 27660,
+    "browser_download_url": "https://github.com/kingstar3452/Aisora/releases/download/untagged-f88604f6870893b805b0/Aisora-bridge-extension-0.3.1.zip"
+  },
+  "sha256": "88c504b7407b83632bace40f5e56213f1fa435a2f6e9f3185c94dd97877b2355",
+  "verification_url": "https://github.com/kingstar3452/Aisora/releases/download/untagged-f88604f6870893b805b0/Aisora-bridge-extension-0.3.1.zip.verification.json",
+  "checksum_url": "https://github.com/kingstar3452/Aisora/releases/download/untagged-f88604f6870893b805b0/Aisora-bridge-extension-0.3.1.zip.sha256",
+  "github_ci": "https://github.com/kingstar3452/Aisora/actions/runs/39956969947",
+  "independent_download_checks": [
+    "SHA-256 matches checksum, CI verification receipt and local committed-source package",
+    "ZIP CRC",
+    "exact allowlist and individual source hashes",
+    "matching bridge/extension versions and protocol",
+    "launcher permissions 0755",
+    "no pairing configuration shipped"
+  ],
+  "standalone_app_rebuild_required": false,
+  "working_app_asset_unchanged": 668855143,
+  "standalone_app_sha256": "263dddb013d59a6207cd76a67f8d694f861e8e9ef224aba418e667598dd6710b",
+  "linux_validation": {
+    "python_tests": 25,
+    "node_groups": 41,
+    "existing_rc2_pack_godot_http_lipsync_checks": 15,
+    "targeted_go_updater_voice_guard": "pass",
+    "chromium_setup_dom_file_picker": "pass; extension transport mocked",
+    "chromium_voice_dom_fixture": "pass; simulated page"
+  },
+  "actual_ventura_pairing_tested": false,
+  "authenticated_chatgpt_voice_tested": false,
+  "user_reported_existing_app_launch": "successful on 2017 Intel iMac / Ventura; not independently reproduced here",
+  "stable_or_public_release_published": false
+}

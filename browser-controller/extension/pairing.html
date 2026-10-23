@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Aisora · Bridge pairing</title><link rel="stylesheet" href="popup.css"></head>
+<body class="pairing-page">
+<h1>Aisora · Local bridge</h1>
+<p>This setup tab stays open while the macOS file picker is in use. Importing a file is separate from authenticating the running bridge.</p>
+<p id="connection" role="status">Checking bridge…</p><small id="versions"></small>
+<label class="file">Import current bridge.json <input id="pair" type="file" accept=".json,application/json"></label>
+<p>Use the exact path printed by the running bridge. In Finder's file picker, Command+Shift+G accepts that full path. For a simpler permanent location, the setup guide uses Documents/Aisora Bridge/bridge.json.</p>
+<button id="reconnect">Reconnect saved pairing</button>
+<button id="reset">Reset pairing…</button>
+<p id="status" role="status">Start one bridge, then import its configuration once.</p>
+<p>After Connected appears, return to your existing ChatGPT conversation and use the popup's “Use this ChatGPT tab”. No conversation is automatically selected or started here.</p>
+<small>Reset forgets this extension's bridge pairing/selection and stops its output meter. It does not delete bridge files, sign out of ChatGPT, or stop native Voice. End Voice before resetting. Never share the pairing file or key.</small>
+<script src="pairing_status.js"></script><script src="pairing.js"></script>
+</body></html>

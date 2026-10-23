@@ -1,0 +1,44 @@
+{
+  "source_commit": "6d139bc308112fa1ab3b56c0a5c00b472559b658",
+  "native_os": "macOS-15.7.9-x86_64-i386-64bit",
+  "receipt": {
+    "source_commit": "6d139bc308112fa1ab3b56c0a5c00b472559b658",
+    "source_zip_sha256": "fdb5bd6b9f9d7347ebc4d8acad1073e6c7698e6b4c7c3a4852da05a2ccbd5899",
+    "archive": "/Users/runner/work/Aisora/Aisora/.local/local-build-ci/source/Aisora-6d139bc308112fa1ab3b56c0a5c00b472559b658/exports/local-preview/Aisora-phase6-macos-local.zip",
+    "archive_sha256": "db837af727d3962fbf116024205f58bee50bc58ed9f59464a1cfd1b283b5b398",
+    "application": "/Users/runner/work/Aisora/Aisora/.local/local-build-ci/source/Aisora-6d139bc308112fa1ab3b56c0a5c00b472559b658/exports/local-preview/Aisora.app",
+    "godot": "4.6.3.stable.official.7d41c59c4",
+    "go": "go version go1.27.3 darwin/amd64",
+    "locally_source_built": true,
+    "native_signature_integrity": "pass",
+    "architecture": "x86_64",
+    "gatekeeper_assessment": {
+      "exit": 3,
+      "output": "/Users/runner/work/Aisora/Aisora/.local/local-build-ci/source/Aisora-6d139bc308112fa1ab3b56c0a5c00b472559b658/exports/local-preview/Aisora.app: rejected\n"
+    },
+    "normal_finder_launch_tested": false,
+    "target_imac_tested": false,
+    "developer_id_signed": false,
+    "notarized": false,
+    "security_policy_or_quarantine_changed": false,
+    "application_installed_or_launched": false
+  },
+  "git_invoked_by_archive_build": false,
+  "native_headless_startup": {
+    "exit": 0,
+    "output": "Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org\n\n"
+  },
+  "native_helper_startup": {
+    "exit": 0,
+    "output": "Usage of /Users/runner/work/Aisora/Aisora/.local/local-build-ci/source/Aisora-6d139bc308112fa1ab3b56c0a5c00b472559b658/exports/local-preview/Aisora.app/Contents/Helpers/AisoraUpdater:\n  -bridge string\n    \tlocal bridge pairing path\n  -confirmed-no-voice\n    \tuser confirmed external Voice ended\n  -data string\n    \tprivate local updates directory\n  -mode string\n    \tcheck, stage, install or rollback (default \"check\")\n  -parent int\n    \tAisora process to wait for\n  -preview\n    \tinclude prereleases\n  -tag string\n    \tpublished release tag\n"
+  },
+  "ci_launchservices": {
+    "exit": 0,
+    "output": ""
+  },
+  "ci_window_log": "Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org\nOpenGL API 4.1 APPLE-21.1.1 - Compatibility - Using Device: Apple Inc. - Apple Software Renderer\n\n",
+  "normal_target_finder_or_open_anyway_tested": false,
+  "ventura_imac_tested": false,
+  "runtime_changes": false,
+  "quarantine_or_security_policy_changed": false
+}

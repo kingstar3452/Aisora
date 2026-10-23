@@ -1,0 +1,75 @@
+{
+	"cases": {
+		"idle": {
+			"cloth_position_writes": 0,
+			"stage_ms": [
+				0.0387311111111111,
+				0.00140666666666667,
+				0.0229161111111111,
+				0.00349722222222222,
+				0.004395,
+				0.001585
+			],
+			"total_ms_per_tick": 0.0741888888888889
+		},
+		"seated": {
+			"cloth_position_writes": 24860,
+			"stage_ms": [
+				0.0540533333333333,
+				0.00175055555555556,
+				0.0360627777777778,
+				0.00210055555555556,
+				0.00527333333333333,
+				0.0936766666666667
+			],
+			"total_ms_per_tick": 0.194427222222222
+		},
+		"sleeping": {
+			"cloth_position_writes": 14644,
+			"stage_ms": [
+				0.0567772222222222,
+				0.00171611111111111,
+				0.0343583333333333,
+				0.00181444444444444,
+				0.005255,
+				0.0897516666666667
+			],
+			"total_ms_per_tick": 0.191895
+		},
+		"talking": {
+			"cloth_position_writes": 0,
+			"stage_ms": [
+				0.0389411111111111,
+				0.0347466666666667,
+				0.0224522222222222,
+				0.00397944444444444,
+				0.00453,
+				0.00216555555555556
+			],
+			"total_ms_per_tick": 0.108072222222222
+		},
+		"walking": {
+			"cloth_position_writes": 0,
+			"stage_ms": [
+				0.0404283333333333,
+				0.00180666666666667,
+				0.0255677777777778,
+				0.003655,
+				0.00440944444444444,
+				0.0518188888888889
+			],
+			"total_ms_per_tick": 0.12994
+		}
+	},
+	"engine": "4.6.3-stable (official)",
+	"note": "Headless CPU microbenchmark; 330 warmup ticks. Includes opt-in timing overhead, no native render flush; not a device FPS forecast.",
+	"stages": [
+		"motion_and_rest",
+		"pose_safety",
+		"bone_setters",
+		"secondary",
+		"face",
+		"gait_and_rest_ik"
+	],
+	"ticks_per_case": 1800
+}

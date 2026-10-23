@@ -1,0 +1,48 @@
+name: Bridge pairing repair (private support artifact only)
+on:
+  push:
+    branches: [ci/aisora-bridge-repair]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Bridge authentication/startup and extension lifecycle regressions
+        run: |
+          python3 -m unittest discover -s tests -p test_bridge.py -v
+          node --test tests/*.test.cjs
+          for script in browser-controller/extension/*.js; do node --check "$script"; done
+      - name: Package exact committed sources without pairing credentials
+        run: python3 tools/package_bridge.py
+      - name: Attach support ZIP only to the existing PRIVATE preview draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          repo = os.environ['GITHUB_REPOSITORY']
+          assert repo == 'kingstar3452/Aisora'
+          target = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/421423152']))
+          assert target['draft'] and target['tag_name'] == 'v6.1.0-rc.2'
+          existing = {a['name']: a for a in target['assets']}
+          files = sorted(Path('exports').glob('Aisora-bridge-extension-0.3.1.zip*'))
+          assert len(files) == 3
+          for path in files:
+              if path.name in existing:
+                  content = subprocess.check_output(['gh', 'api', '-H', 'Accept: application/octet-stream', f'repos/{repo}/releases/assets/{existing[path.name]["id"]}'])
+                  assert hashlib.sha256(content).hexdigest() == hashlib.sha256(path.read_bytes()).hexdigest(), 'Refusing to replace an existing differing asset'
+              else:
+                  subprocess.run(['gh', 'release', 'upload', 'v6.1.0-rc.2', str(path), '--repo', repo], check=True)
+          assert json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/421423152']))['draft']
+          print('Support artifact staged into private draft. Standalone app assets unchanged; no publication.')
+          PY

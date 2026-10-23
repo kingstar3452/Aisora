@@ -1,0 +1,86 @@
+{
+  "native_os": "macOS-15.7.9-x86_64-i386-64bit",
+  "machine": "x86_64",
+  "scope": "Native macOS CI rebuild, not the target iMac or Linux-cross-signed archive",
+  "native_voice_tested": false,
+  "target_imac_tested": false,
+  "developer_id_signed": false,
+  "notarized": false,
+  "bundle": {
+    "architecture": "x86_64",
+    "zip_crc": "pass",
+    "executable_permission": "pass",
+    "minimum_os": [
+      [
+        10,
+        13,
+        0
+      ]
+    ],
+    "signature_type": "ad-hoc",
+    "code_directories": [
+      {
+        "identifier": "local.aisora.companion",
+        "ad_hoc": true,
+        "digest": "sha256",
+        "code_pages_verified": 23123,
+        "special_slots_verified": 3,
+        "cdhash": "6910bf4f2de27fbb4446a8f86685b7e201ec8013"
+      }
+    ],
+    "resource_hashes_verified": 5,
+    "nested_code_verified": [
+      {
+        "path": "Helpers/AisoraUpdater",
+        "architecture": "x86_64",
+        "minimum_os": [
+          [
+            13,
+            0,
+            0
+          ]
+        ],
+        "code_directories": [
+          {
+            "identifier": "local.aisora.companion.updater",
+            "ad_hoc": true,
+            "digest": "sha256",
+            "code_pages_verified": 1865,
+            "special_slots_verified": 1,
+            "cdhash": "7ee19195b1e9208b2813d806d5a934803632757d"
+          }
+        ]
+      }
+    ],
+    "info_plist_and_resource_seals": "pass",
+    "sha256": "263dddb013d59a6207cd76a67f8d694f861e8e9ef224aba418e667598dd6710b",
+    "bytes": 60018823,
+    "developer_id_verified": false,
+    "notarization_verified": false,
+    "gatekeeper_assessment_performed": false,
+    "native_macos_launch_performed": false
+  },
+  "source_commit": "9095bceef8a0294c38850f1b874a7f508610a476",
+  "native_release_headless_boot": "pass",
+  "native_packed_autonomy": "pass",
+  "native_compatibility_pack_render": "pass",
+  "native_corruption_rejected": true,
+  "assessment_policy": "assessments enabled",
+  "quarantine_assessment": {
+    "exit": 3,
+    "output": "/Users/runner/work/Aisora/Aisora/.local/macos-ci/validation/quarantine-test/Aisora.app: rejected",
+    "note": "CI policy result only; ad-hoc signing is not Developer ID or notarization. No Finder trust or user-Mac success is inferred."
+  },
+  "validation_logs": {
+    "main-arch.log": "x86_64\n",
+    "helper-arch.log": "x86_64\n",
+    "bundle-signature.log": "--prepared:/Users/runner/work/Aisora/Aisora/.local/macos-ci/validation/Aisora.app/Contents/Helpers/AisoraUpdater\n--validated:/Users/runner/work/Aisora/Aisora/.local/macos-ci/validation/Aisora.app/Contents/Helpers/AisoraUpdater\n/Users/runner/work/Aisora/Aisora/.local/macos-ci/validation/Aisora.app: valid on disk\n/Users/runner/work/Aisora/Aisora/.local/macos-ci/validation/Aisora.app: satisfies its Designated Requirement\n",
+    "signature-details.log": "Executable=/Users/runner/work/Aisora/Aisora/.local/macos-ci/validation/Aisora.app/Contents/MacOS/Aisora\nIdentifier=local.aisora.companion\nFormat=app bundle with Mach-O thin (x86_64)\nCodeDirectory v=20400 size=740143 flags=0x2(adhoc) hashes=23123+3 location=embedded\nVersionPlatform=1\nVersionMin=658688\nVersionSDK=1704192\nHash type=sha256 size=32\nCandidateCDHash sha256=6910bf4f2de27fbb4446a8f86685b7e201ec8013\nCandidateCDHashFull sha256=6910bf4f2de27fbb4446a8f86685b7e201ec80136177f1563d74a12313aa9fda\nHash choices=sha256\nCMSDigest=6910bf4f2de27fbb4446a8f86685b7e201ec80136177f1563d74a12313aa9fda\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=78368768\nExecutable Segment flags=0x1\nPage size=4096\nCDHash=6910bf4f2de27fbb4446a8f86685b7e201ec8013\nSignature=adhoc\nInfo.plist entries=29\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=6\nInternal requirements count=0 size=12\n",
+    "native-release-headless.log": "Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org\n\n",
+    "native-packed-autonomy.log": "Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org\n\nAUTONOMY TESTS: 48 checks; 0 failures\n",
+    "native-render-body.log": "Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org\nOpenGL API 4.1 APPLE-21.1.1 - Compatibility - Using Device: Apple Inc. - Apple Software Renderer\n\nPHASE 6 RENDER TESTS: 24 checks; 0 failures\n",
+    "native-render-face.log": "Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org\nOpenGL API 4.1 APPLE-21.1.1 - Compatibility - Using Device: Apple Inc. - Apple Software Renderer\n\nFACE RENDER preset=0 changed pixels=31\nFACE RENDER preset=1 changed pixels=35\nFACE RENDER preset=2 changed pixels=29\nFACIAL RENDER TESTS: 6 checks; 0 failures\n",
+    "corruption-rejection.log": "/Users/runner/work/Aisora/Aisora/.local/macos-ci/validation/corruption-test/Aisora.app: a sealed resource is missing or invalid\n"
+  },
+  "native_go_log": "=== RUN   TestDarwinNativeDirectoryExchange\n--- PASS: TestDarwinNativeDirectoryExchange (0.00s)\n=== RUN   TestSemanticVersionAndChannel\n--- PASS: TestSemanticVersionAndChannel (0.00s)\n=== RUN   TestRejectUnsafeManifest\n=== RUN   TestRejectUnsafeManifest/tag_mismatch\n=== RUN   TestRejectUnsafeManifest/oversize\n=== RUN   TestRejectUnsafeManifest/bad_sha\n=== RUN   TestRejectUnsafeManifest/arm\n=== RUN   TestRejectUnsafeManifest/other_bundle\n=== RUN   TestRejectUnsafeManifest/future_protocol\n=== RUN   TestRejectUnsafeManifest/script_URL\n=== RUN   TestRejectUnsafeManifest/wrong_repo\n--- PASS: TestRejectUnsafeManifest (0.00s)\n    --- PASS: TestRejectUnsafeManifest/tag_mismatch (0.00s)\n    --- PASS: TestRejectUnsafeManifest/oversize (0.00s)\n    --- PASS: TestRejectUnsafeManifest/bad_sha (0.00s)\n    --- PASS: TestRejectUnsafeManifest/arm (0.00s)\n    --- PASS: TestRejectUnsafeManifest/other_bundle (0.00s)\n    --- PASS: TestRejectUnsafeManifest/future_protocol (0.00s)\n    --- PASS: TestRejectUnsafeManifest/script_URL (0.00s)\n    --- PASS: TestRejectUnsafeManifest/wrong_repo (0.00s)\n=== RUN   TestZIPTraversalAndPermissions\n=== RUN   TestZIPTraversalAndPermissions/../Aisora.app/Contents/x\n=== RUN   TestZIPTraversalAndPermissions/Aisora.app/../outside\n=== RUN   TestZIPTraversalAndPermissions/Aisora.app/Contents/../../bad\n=== RUN   TestZIPTraversalAndPermissions//Aisora.app/x\n=== RUN   TestZIPTraversalAndPermissions/Aisora.app\\x\n=== RUN   TestZIPTraversalAndPermissions/evil.sh\n=== RUN   TestZIPTraversalAndPermissions/symlink\n=== RUN   TestZIPTraversalAndPermissions/duplicate\n=== RUN   TestZIPTraversalAndPermissions/noexecute\n--- PASS: TestZIPTraversalAndPermissions (0.01s)\n    --- PASS: TestZIPTraversalAndPermissions/../Aisora.app/Contents/x (0.00s)\n    --- PASS: TestZIPTraversalAndPermissions/Aisora.app/../outside (0.00s)\n    --- PASS: TestZIPTraversalAndPermissions/Aisora.app/Contents/../../bad (0.00s)\n    --- PASS: TestZIPTraversalAndPermissions//Aisora.app/x (0.00s)\n    --- PASS: TestZIPTraversalAndPermissions/Aisora.app\\x (0.00s)\n    --- PASS: TestZIPTraversalAndPermissions/evil.sh (0.00s)\n    --- PASS: TestZIPTraversalAndPermissions/symlink (0.00s)\n    --- PASS: TestZIPTraversalAndPermissions/duplicate (0.00s)\n    --- PASS: TestZIPTraversalAndPermissions/noexecute (0.00s)\n=== RUN   TestTransactionRestoresAndIsIdempotent\n--- PASS: TestTransactionRestoresAndIsIdempotent (0.10s)\n=== RUN   TestDeniedAtomicSwapLeavesOriginal\n--- PASS: TestDeniedAtomicSwapLeavesOriginal (0.02s)\n=== RUN   TestJournalFailureRestoresOriginal\n--- PASS: TestJournalFailureRestoresOriginal (0.02s)\n=== RUN   TestInterruptedJournalInfersRealVersions\n--- PASS: TestInterruptedJournalInfersRealVersions (0.01s)\n=== RUN   TestTreeAndStructureRejectChanges\n--- PASS: TestTreeAndStructureRejectChanges (0.01s)\n=== RUN   TestVoiceGuard\n--- PASS: TestVoiceGuard (0.01s)\n=== RUN   TestLockAndAtomicJSON\n--- PASS: TestLockAndAtomicJSON (0.02s)\n=== RUN   TestHTTPFailureDoesNotCreateDownload\n--- PASS: TestHTTPFailureDoesNotCreateDownload (0.00s)\n=== RUN   TestDownloadChecksumLengthAndInterruption\n=== RUN   TestDownloadChecksumLengthAndInterruption/valid\n=== RUN   TestDownloadChecksumLengthAndInterruption/wrong_hash\n=== RUN   TestDownloadChecksumLengthAndInterruption/short\n=== RUN   TestDownloadChecksumLengthAndInterruption/long\n=== RUN   TestDownloadChecksumLengthAndInterruption/http_error\n=== RUN   TestDownloadChecksumLengthAndInterruption/interrupted\n--- PASS: TestDownloadChecksumLengthAndInterruption (0.01s)\n    --- PASS: TestDownloadChecksumLengthAndInterruption/valid (0.00s)\n    --- PASS: TestDownloadChecksumLengthAndInterruption/wrong_hash (0.00s)\n    --- PASS: TestDownloadChecksumLengthAndInterruption/short (0.00s)\n    --- PASS: TestDownloadChecksumLengthAndInterruption/long (0.00s)\n    --- PASS: TestDownloadChecksumLengthAndInterruption/http_error (0.00s)\n    --- PASS: TestDownloadChecksumLengthAndInterruption/interrupted (0.00s)\n=== RUN   TestBundleRejectsSymlinkAncestor\n--- PASS: TestBundleRejectsSymlinkAncestor (0.01s)\nPASS\nok  \taisora.local/updater\t0.243s\n"
+}

@@ -1,0 +1,285 @@
+{
+  "method": {
+    "runs": 3,
+    "measured_frames": 120,
+    "warmup_frames": 60,
+    "state": "idle",
+    "lp_num_threads": "2",
+    "uncapped": true,
+    "resolution": "960x600",
+    "ui_and_network": false,
+    "summary": "Median of per-run statistics, not pooled frame percentiles.",
+    "before_commit": "9e83e0a79b7c46d36d18f4c8321de76181a2969f",
+    "date_utc": "2026-10-17",
+    "environment": {
+      "os": "Linux 6.18.55 x86_64",
+      "cpu": "Intel Xeon Platinum 8573C, five visible vCPUs, four-core quota",
+      "memory_limit_gib": 32,
+      "gpu": "Mesa 25.0.7 llvmpipe LLVM 19.1.7, Xvfb :99",
+      "godot": "4.6.3 official, Compatibility, Dummy audio",
+      "limitations": "Shared host and software OpenGL; unsupported VSync mode switch; not an Intel Mac or release export."
+    }
+  },
+  "medians": {
+    "phase2-idle": {
+      "cpu": {
+        "mean_ms": 0.057444,
+        "p50_ms": 0.05251,
+        "p95_ms": 0.09471
+      },
+      "render": {
+        "mean_ms": 79.9887416666667,
+        "p50_ms": 73.99,
+        "p95_ms": 105.527
+      }
+    },
+    "phase3-low-idle": {
+      "cpu": {
+        "mean_ms": 0.03890875,
+        "p50_ms": 0.03817,
+        "p95_ms": 0.04747
+      },
+      "render": {
+        "mean_ms": 43.8864583333333,
+        "p50_ms": 42.923,
+        "p95_ms": 53.193
+      }
+    }
+  },
+  "samples": [
+    {
+      "character_tick": {
+        "mean_ms": 0.11324525,
+        "p50_ms": 0.05948,
+        "p95_ms": 0.39563
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase2-idle-1",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 214103041.0,
+      "repetition": 1
+    },
+    {
+      "draw_calls": 47.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 79.9887416666667,
+        "p50_ms": 75.378,
+        "p95_ms": 105.527
+      },
+      "label": "phase2-idle-1",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 82139.0,
+      "process_ms": 93.453,
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 38897620.0,
+      "video_memory_bytes": 257964814.0,
+      "repetition": 1
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.03890875,
+        "p50_ms": 0.03847,
+        "p95_ms": 0.04747
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase3-low-idle-1",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 216770970.0,
+      "repetition": 1
+    },
+    {
+      "draw_calls": 29.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 45.2033583333333,
+        "p50_ms": 43.843,
+        "p95_ms": 56.315
+      },
+      "label": "phase3-low-idle-1",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 58022.0,
+      "process_ms": 71.802,
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 39000161.0,
+      "video_memory_bytes": 260999542.0,
+      "repetition": 1
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.04881775,
+        "p50_ms": 0.04535,
+        "p95_ms": 0.08126
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase2-idle-2",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 214103041.0,
+      "repetition": 2
+    },
+    {
+      "draw_calls": 47.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 76.1518166666666,
+        "p50_ms": 71.225,
+        "p95_ms": 112.014
+      },
+      "label": "phase2-idle-2",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 82139.0,
+      "process_ms": 97.695,
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 38897620.0,
+      "video_memory_bytes": 257964814.0,
+      "repetition": 2
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.03988875,
+        "p50_ms": 0.03817,
+        "p95_ms": 0.05892
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase3-low-idle-2",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 216770970.0,
+      "repetition": 2
+    },
+    {
+      "draw_calls": 29.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 43.8864583333333,
+        "p50_ms": 42.923,
+        "p95_ms": 52.252
+      },
+      "label": "phase3-low-idle-2",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 58022.0,
+      "process_ms": 50.676,
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 39000161.0,
+      "video_memory_bytes": 260999542.0,
+      "repetition": 2
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.057444,
+        "p50_ms": 0.05251,
+        "p95_ms": 0.09471
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase2-idle-3",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 214103041.0,
+      "repetition": 3
+    },
+    {
+      "draw_calls": 47.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 80.5722916666666,
+        "p50_ms": 73.99,
+        "p95_ms": 102.301
+      },
+      "label": "phase2-idle-3",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 82139.0,
+      "process_ms": 85.491,
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 38897620.0,
+      "video_memory_bytes": 257964814.0,
+      "repetition": 3
+    },
+    {
+      "character_tick": {
+        "mean_ms": 0.03624375,
+        "p50_ms": 0.03524,
+        "p95_ms": 0.04441
+      },
+      "engine": "4.6.3-stable (official)",
+      "label": "phase3-low-idle-3",
+      "mode": "cpu",
+      "note": "CPU tick microbenchmark; no per-tick render flush, 40 batches of 100 after 300 warmup ticks.",
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 216770970.0,
+      "repetition": 3
+    },
+    {
+      "draw_calls": 29.0,
+      "engine": "4.6.3-stable (official)",
+      "frame": {
+        "mean_ms": 43.6073916666667,
+        "p50_ms": 42.693,
+        "p95_ms": 53.193
+      },
+      "label": "phase3-low-idle-3",
+      "mode": "render",
+      "note": "Uncapped wall frame intervals after 60 warmup frames, UI/network disabled. Software renderer if llvmpipe.",
+      "part": "full",
+      "primitives": 58022.0,
+      "process_ms": 60.398,
+      "quality": 0,
+      "rendering_method": "gl_compatibility",
+      "resolution": "960x600",
+      "state": "idle",
+      "static_memory_bytes": 39000161.0,
+      "video_memory_bytes": 260999542.0,
+      "repetition": 3
+    }
+  ]
+}

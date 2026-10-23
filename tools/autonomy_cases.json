@@ -1,0 +1,5 @@
+[
+ {"id":"cursor-idle-low","state":"idle","quality":0},
+ {"id":"cursor-speaking-low","state":"speaking","quality":0},
+ {"id":"cursor-listening-low","state":"listening","quality":0}
+]
