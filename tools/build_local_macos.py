@@ -36,7 +36,7 @@ def checked(command, log, environment):
     text = result.stdout + result.stderr
     log.write_text(text)
     if result.returncode or 'SCRIPT ERROR' in text or '\nERROR:' in text:
-        raise RuntimeError('Build step failed; see ' + str(log) + '. No installed application was changed.')
+        raise RuntimeError('Build step failed; see ' + str(log) + '. No installed application was changed.\n' + text[-12000:])
     return text.strip()
 
 

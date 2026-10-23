@@ -52,6 +52,7 @@ jobs:
       - name: Focused source-ZIP build without git
         run: python3 tools/check_local_build_ci.py
       - name: Save focused evidence to PRIVATE draft only
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -61,8 +62,14 @@ jobs:
           repo = os.environ['GITHUB_REPOSITORY']
           info = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/421423152']))
           assert repo == 'kingstar3452/Aisora' and info['draft'] and info['tag_name'] == 'v6.1.0-rc.2'
-          source = Path('.local/local-build-ci/local-source-build-report.json')
-          target = source.with_name('local-source-build-' + os.environ['GITHUB_RUN_ID'] + '.json')
-          target.write_bytes(source.read_bytes())
+          work = Path('.local/local-build-ci'); work.mkdir(parents=True, exist_ok=True)
+          source = work / 'local-source-build-report.json'
+          target = work / ('local-source-build-' + os.environ['GITHUB_RUN_ID'] + '.json')
+          if source.exists():
+              target.write_bytes(source.read_bytes())
+          else:
+              logs = list(work.glob('*.log')) + list(work.glob('source/*/exports/local-preview/*.log'))
+              target.write_text(json.dumps({'source_commit': os.environ['GITHUB_SHA'], 'completed': False,
+                  'logs': {str(x.relative_to(work)): x.read_text()[-30000:] for x in logs}}, indent=2) + '\n')
           subprocess.run(['gh', 'release', 'upload', 'v6.1.0-rc.2', str(target), '--repo', repo], check=True)
           PY
