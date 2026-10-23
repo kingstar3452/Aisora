@@ -15,6 +15,8 @@ import subprocess
 import tarfile
 import urllib.request
 
+from source_provenance import source_revision
+
 VERSION = 'go1.27.3'
 ARCHIVE = VERSION + '.linux-amd64.tar.gz'
 SHA256 = '65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40'
@@ -62,9 +64,7 @@ def main():
     if args.build or not args.test:
         output = args.output or repo / '.local/updater/AisoraUpdater'
         output.parent.mkdir(parents=True, exist_ok=True)
-        revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
-        if subprocess.check_output(['git', 'status', '--porcelain'], cwd=repo):
-            revision += '-dirty'
+        revision = source_revision(repo, include_dirty=True)
         environment.update(GOOS='darwin', GOARCH='amd64', CGO_ENABLED='0')
         subprocess.run([str(go), 'build', '-trimpath', '-buildvcs=false', '-ldflags',
                         f'-s -w -X main.buildVersion={version(repo)} -X main.sourceCommit={revision}',

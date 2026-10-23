@@ -18,6 +18,7 @@ import tempfile
 import zipfile
 
 from macos_bundle import BundleError, verify_zip
+from source_provenance import source_revision
 
 
 def extract_export(archive, destination):
@@ -57,7 +58,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='aisora-export-', dir=output.parent) as scratch:
         work = Path(scratch)
         raw = work / 'raw.zip'
-        run = subprocess.run([str(repo / 'tools/run_godot.sh'), '--headless', '--editor',
+        run = subprocess.run(['/bin/bash', str(repo / 'tools/run_godot.sh'), '--headless', '--editor',
                               '--export-release', 'macOS', str(raw)], cwd=repo,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         print(run.stdout, end='')
@@ -78,7 +79,7 @@ def main():
         info.update(AisoraVersion=app_version,AisoraUpdaterProtocol='1',
                     CFBundleShortVersionString=app_version.split('-')[0],
                     CFBundleVersion=app_version.split('-')[0],LSMinimumSystemVersion='13.0')
-        info['AisoraSourceCommit']=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
+        info['AisoraSourceCommit']=source_revision(repo)
         (app/'Contents/Info.plist').write_bytes(plistlib.dumps(info))
         executable = app / 'Contents/MacOS/Aisora'
         executable.chmod(0o755)
