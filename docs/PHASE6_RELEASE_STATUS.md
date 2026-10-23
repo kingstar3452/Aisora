@@ -1,13 +1,13 @@
 # Phase 6 preview release decision — 23 October 2026, Asia/Singapore
 
-**Result: stop before public publication.** The user has conditionally authorized preview publication after artifact integrity and a supported macOS installation path are verified. Artifact integrity passes, but **Gatekeeper rejects the quarantined ad-hoc build**. No Developer ID/notarization credentials have been provided. A preview label or checksum cannot satisfy this missing trust requirement. Stable-release acceptance has not been granted or established.
+**Current decision: private preview ready for user testing; no public publication.** The user's latest clarification authorizes a separate ad-hoc preview using Ventura's normal **Privacy & Security → Open Anyway** workflow **if offered**, without obtaining paid credentials solely for this test. Artifact integrity passes, while CI **Gatekeeper rejects the quarantined ad-hoc build**. Actual Ventura approval/Finder launch is still unverified. Use [the exact private-preview steps and genuine source-build alternative](MACOS_PRIVATE_PREVIEW.md); a preview label/checksum does not confer publisher trust or notarization.
 
 ## Exact candidate
 
 | Item | Value |
 | --- | --- |
 | Build version | **6.1.0-rc.2**, preview/test candidate |
-| Versioned private draft | [v6.1.0-rc.2](https://github.com/kingstar3452/Aisora/releases/tag/untagged-338c20c7d3a0458a3c76), release ID **421423152**; not published |
+| Versioned private draft | [v6.1.0-rc.2](https://github.com/kingstar3452/Aisora/releases/tag/untagged-f88604f6870893b805b0), release ID **421423152**; not published |
 | Native build commit | **9095bceef8a0294c38850f1b874a7f508610a476** |
 | Production runtime commit | **2142475b0cc9f8386e64929db1486746e9115e8b**; later development changes are CI/tests/tools/docs |
 | Target | Intel **x86_64**, macOS **13.0+**, official Godot **4.6.3** Compatibility workflow/templates |
@@ -15,7 +15,7 @@
 | SHA-256 | `263dddb013d59a6207cd76a67f8d694f861e8e9ef224aba418e667598dd6710b` |
 | Signing/trust | Ad-hoc; no Developer ID, no notarization; native Gatekeeper assessment **rejected, exit 3** |
 
-The versioned draft's new asset upload failed with **HTTP 401: Bad credentials** at `uploads.github.com`; no files were attached to that draft. The exact tested binary is still accessible through the original, untouched [native-validation private draft](https://github.com/kingstar3452/Aisora/releases/tag/untagged-1db13c3057e44d8033ad), release ID **421151792**, ZIP asset ID **666951269**: [direct ZIP](https://github.com/kingstar3452/Aisora/releases/download/untagged-1db13c3057e44d8033ad/Aisora-phase6-macos.zip). Owner login is required. If draft links change after editing, find the draft in [repository Releases](https://github.com/kingstar3452/Aisora/releases). There is no public versioned release or public artifact fallback.
+The earlier **HTTP 401** upload failure is **resolved for this private delivery**: the authorized CI token copied the exact verified binary/checksum/evidence into the versioned draft. Its new ZIP asset **668855143** was downloaded and its SHA-256/size independently matched. [Direct private ZIP](https://github.com/kingstar3452/Aisora/releases/download/untagged-f88604f6870893b805b0/Aisora-phase6-macos.zip). Owner login is required. [Delivery receipt](private-preview-delivery.json). The original native-validation draft/assets are untouched. If links change after draft editing, find it in [repository Releases](https://github.com/kingstar3452/Aisora/releases). Nothing was published publicly.
 
 The draft deliberately has **no update-discovery manifest**: a known Gatekeeper-rejected candidate must not be offered as an installable update. Approved future builds need fresh final bytes/checksums and matching release metadata after signing/notarization. Existing public releases, the previous drafts and the user's installed app are preserved.
 
@@ -45,7 +45,7 @@ These functions are already implemented in the candidate; no duplicate updater w
 
 See [UPDATES.md](UPDATES.md) for exact controls, staging safeguards, recovery and failure cases. The bridge/extension remains separate and unchanged.
 
-## Legitimate signing and distribution prerequisite
+## For generally trusted distribution
 
 An authorized signing maintainer needs a valid **Developer ID Application** identity/private key and Apple notarization access configured through secure keychain/CI secret storage. An existing organization or trusted authorized distributor can supply the signing service; the user does not necessarily need to own a separate paid account. No such signing capability has been supplied here. Do not paste certificates/private keys/passwords into chat.
 
@@ -53,11 +53,11 @@ The supported completion path is to finalize the app contents, natively sign the
 
 The current exporter/CI and Python independent signature verifier explicitly handle **ad-hoc candidates**; they must not be advertised as an automated Developer ID/notarization pipeline or relaxed to make a certificate-signed build appear verified. A native trusted-signing finishing/verification path must be used and validated when authorized signing access is available. The app and updater need no paid developer account to run, but this does not confer trusted Internet distribution on an ad-hoc binary. Repeatedly ad-hoc signing/re-zipping the same app will not solve the acceptance failure.
 
-GitHub asset-upload authentication must also be repaired before attaching the final trusted archive. Repository reads/draft preparation work, but the upload endpoint rejected both the batch and a small checksum-only attempt. This is an HTTP authentication failure, not an automatic approval-review rejection. No public branch/asset workaround was used while the installation condition is unmet.
+Developer ID/notarization remains the usual generally trusted distribution path, not a new requirement imposed solely for this explicitly authorized private test. Private user approval is conditional on what Ventura actually offers; it is not equivalent to notarization or an updater acceptance test. The existing updater's signature/Gatekeeper checks have not been weakened.
 
 ## Safe installation and rollback
 
-**For the current rejected candidate: keep the working installation; no supported normal-install path is verified.** Do not disable Gatekeeper, strip quarantine, add assessment exceptions, change security policy or use Terminal launch workarounds.
+**Keep the working installation.** Follow the user's authorized, separate [private test procedure](MACOS_PRIVATE_PREVIEW.md), using normal **Open Anyway** approval only if macOS offers it. If it does not, stop and use the documented genuine source-build alternative or an authorized trusted distributor. Do not disable Gatekeeper, strip quarantine, add assessment exceptions, change broader security policy or use Terminal launch workarounds.
 
 After a trusted preview passes the release gate:
 
@@ -67,4 +67,4 @@ After a trusted preview passes the release gate:
 4. Test settings/image/calibration/pairing persistence, animations, actual Voice/lip sync and the [same-condition performance checklist](PERFORMANCE_RC2.md#local-acceptance-gate). Enable launch checks/preview releases if desired; those choices are saved.
 5. To roll back the separate preview test, quit it and reopen the untouched working app. Retain the data backup in case preference restoration is needed. For a later accepted in-app update, use **Restore Previous Version** only after closing Voice; see the health/rollback limitations in [UPDATES.md](UPDATES.md).
 
-**Next prerequisite:** authorized trusted signing/notarization and repaired asset-upload access, followed by native installation verification. Conditional preview approval is already recorded; no stable-release claim is authorized. Until the prerequisite is available, stop before public publication rather than rebuild or repeat passed tests.
+**Next action:** the user tests the separate preview's normal Ventura approval/launch and reports whether **Open Anyway** appears. A reproducible source-ZIP builder and pinned inputs are supplied if that fails. No public or stable release is authorized until the applicable acceptance conditions are met; no additional paid credentials are requested merely for the private test.

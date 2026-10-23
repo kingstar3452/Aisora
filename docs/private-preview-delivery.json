@@ -1,0 +1,13 @@
+{
+  "version": "6.1.0-rc.2",
+  "release_id": 421423152,
+  "release_url": "https://github.com/kingstar3452/Aisora/releases/tag/untagged-f88604f6870893b805b0",
+  "zip_asset_id": 668855143,
+  "download_url": "https://github.com/kingstar3452/Aisora/releases/download/untagged-f88604f6870893b805b0/Aisora-phase6-macos.zip",
+  "sha256": "263dddb013d59a6207cd76a67f8d694f861e8e9ef224aba418e667598dd6710b",
+  "bytes": 60018823,
+  "private_draft": true,
+  "native_build_commit": "9095bceef8a0294c38850f1b874a7f508610a476",
+  "ventura_open_anyway_verified": false,
+  "notarized": false
+}

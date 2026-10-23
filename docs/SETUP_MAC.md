@@ -1,5 +1,7 @@
 # Mac setup
 
+For the standalone private preview, start with [separate installation, Ventura Open Anyway, and the verified local-build fallback](MACOS_PRIVATE_PREVIEW.md). Keep the working installation. The local builder exports from a pinned source ZIP without git and needs normal Apple build tools; it does not remove quarantine or change security policy.
+
 For standalone updates, see [one-time updater installation and Gatekeeper limits](UPDATES.md). If Chrome reports **Manifest file is missing**, select the nested **browser-controller/extension** folder in Load unpacked, not the downloaded repository root.
 
 Start with [Phase 6](PHASE6.md) for current full-body/personality controls, calibration, optional autonomy, export and rollback. Phase 5 backgrounds, local sunset alternatives and pairing files are preserved. Reload extension **0.3.0**, refresh your intended Project conversation, then explicitly select it again and restart output capture if needed. Keep your normal authenticated browser session; signing out is unnecessary.
