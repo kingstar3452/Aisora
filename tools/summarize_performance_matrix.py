@@ -15,6 +15,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('input',type=Path)
     parser.add_argument('--output',required=True,type=Path)
+    parser.add_argument('--cases',type=Path,help='Explicit original catalogue when the recorded machine path is unavailable')
     args=parser.parse_args()
     data=json.loads(args.input.read_text());groups={}
     excluded=[record for record in data['records'] if record.get('excluded_reason')]
@@ -23,7 +24,7 @@ def main():
         key=(record['case']['id'],record['revision'])
         groups.setdefault(key,[]).append(record)
     expected=int(data['method']['runs'])
-    catalogue=Path(data['method']['cases'])
+    catalogue=args.cases or Path(data['method']['cases'])
     if not catalogue.exists():catalogue=Path(__file__).with_name('performance_cases.json')
     case_ids={case['id'] for case in json.loads(catalogue.read_text())}
     revisions={key for key,value in data['provenance'].items() if isinstance(value,dict) and 'runtime_sha256' in value}
@@ -55,7 +56,7 @@ def main():
         writer=csv.DictWriter(target,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows)
     headings=['Case','Build','Mean','Median','P95','P99','FPS','CPU %','Peak RSS MiB','P95 range']
     lines=['# Complete performance matrix','',
-           f'Milliseconds except FPS, CPU and memory. Each value is the median of all {expected} valid run statistics; P95 range is min–max across repetitions. CPU covers the measured case (one logical core = 100%). RSS is Linux process memory, not physical GPU usage. Paced cases include deliberate frame waits. All raw runs and frame traces are retained separately. {len(excluded)} instrumentation-invalid samples remain in the audit data and are replaced explicitly; no slow valid run is trimmed.','',
+           f'Milliseconds except FPS, CPU and memory. Each value is the median of all {expected} valid run statistics; P95 range is min–max across repetitions. CPU covers the measured case (one logical core = 100%). RSS is sampled process memory, not physical GPU usage. Paced cases include deliberate frame waits. All raw runs and frame traces are retained separately. {len(excluded)} instrumentation-invalid samples remain in the audit data and are replaced explicitly; no slow valid run is trimmed.','',
            '| '+' | '.join(headings)+' |','| '+' | '.join(['---']*len(headings))+' |']
     for r in rows:
         values=[r['case'],r['revision']]+[f'{r[k]:.2f}' for k in ['mean_ms','median_ms','p95_ms','p99_ms','fps','cpu_percent','rss_peak_mib']]+[f"{r['p95_ms_min']:.2f}–{r['p95_ms_max']:.2f}"]
