@@ -1,6 +1,6 @@
 # Updater-enabled Phase 6 — 6.1.0-rc.2 candidate
 
-Publication is on hold; v6.1.0-rc.1 has been returned to draft and its artifact branch removed. Previously shared immutable GitHub URLs may remain cached/reachable. The [rc.2 performance report](PERFORMANCE_RC2.md) is complete but retains unresolved regressions, so acceptance and fresh publication approval remain outstanding. Native Mac acceptance is still required. Development and Linux tests do not modify the currently installed Mac app.
+On **23 October 2026 (Asia/Singapore)** the user conditionally approved preview publication **only after artifact integrity and a supported installation path are verified**. Integrity passes; native Gatekeeper rejection still blocks publication. v6.1.0-rc.1 remains a draft and its artifact branch was removed. Previously shared immutable GitHub URLs may remain cached/reachable. The [rc.2 performance report](PERFORMANCE_RC2.md) documents unresolved regressions. See [the current release decision](PHASE6_RELEASE_STATUS.md). Development and Linux tests do not modify the currently installed Mac app.
 
 ## One-time installation
 
@@ -9,6 +9,10 @@ The old app has no updater, so one initial installation is necessary. Leave the 
 Open with normal macOS controls. **If macOS says damaged without offering approval, stop.** This candidate is ad-hoc signed, not Developer ID signed/notarized; Intel macOS 15 CI explicitly rejects the quarantined copy, and native Ventura Finder launch remains untested. The review candidate is not a solution to the trusted-launch problem. Do not remove quarantine or disable Gatekeeper. Godot, Go, Python and a developer account are not required to run the app/updater; the existing separate Voice bridge keeps its original requirements.
 
 Settings → **Aisora updates** shows installed/latest version, notes and status. Launch checks default off; preview releases require their own opt-in. Checks defer during Voice. There is no GitHub account/token entry or telemetry.
+
+Enable **Check for updates on launch** to check automatically, and **Include preview releases** to see approved published previews. Both selections are saved and restored. Downloads then happen inside Aisora; **Restart to Update** is a separate action after Voice ends. This avoids repeated browser downloads/extraction/reinstallation after the one-time updater-enabled installation. It does not silently install updates, make an older app acquire the updater remotely, or make a Gatekeeper-rejected build installable.
+
+Main preferences are in `user://settings.cfg`; updater selections are in `user://updates/preferences.cfg`, outside the application bundle. On this Mac project, `user://` is `~/Library/Application Support/Godot/app_userdata/Aisora`. Existing tests cover preference reloads, imported image assignments, behavior/personality settings, calibration/pairing preservation, unknown-key preservation and the one-time migration backup. Actual Mac update/user-data acceptance is still required; an app rollback does not undo subsequent preference edits.
 
 For the extension error in chat, Chrome's **Load unpacked** must select **browser-controller/extension**, which contains `manifest.json`, **not the repository's top-level folder**. The updater does not reinstall a working extension or alter its browser session.
 

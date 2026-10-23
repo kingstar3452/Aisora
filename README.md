@@ -83,3 +83,5 @@ This cloud task already has an isolated checkout; use it directly rather than cr
 See [third-party notices](docs/THIRD_PARTY.md). The character's embedded VRM license metadata remains intact and separate from the importer license.
 
 Autonomy candidate: [preferred defaults, controls and Voice limitations](docs/AUTONOMY.md). The [completed rc.2 performance report](docs/PERFORMANCE_RC2.md) retains gains and regressions; performance acceptance remains open and publication stays held. See the [development checkpoint](docs/DEVELOPMENT_CHECKPOINT.md) for exact recovery state.
+
+Preview publication is now conditionally authorized, but **Gatekeeper acceptance is blocked**. The [release status](docs/PHASE6_RELEASE_STATUS.md) identifies the versioned draft, signing prerequisite, saved settings and built-in updater. Do not replace the working app with the rejected ad-hoc candidate.
